@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"time"
 
 	"ruuvi-listener/internal/service"
 	"ruuvi-listener/internal/ui"
@@ -11,8 +12,9 @@ import (
 )
 
 type config struct {
-	WebhookURL string `json:"webhook_url"`
-	TagsFile   string `json:"tags_file"`
+	WebhookURL   string `json:"webhook_url"`
+	TagsFile     string `json:"tags_file"`
+	SendInterval string `json:"send_interval"`
 }
 
 func loadConfig(path string) (config, error) {
@@ -33,6 +35,15 @@ func main() {
 		cfg.TagsFile = "tags.json"
 	}
 
+	interval := 10 * time.Minute
+	if cfg.SendInterval != "" {
+		if d, err := time.ParseDuration(cfg.SendInterval); err == nil {
+			interval = d
+		} else {
+			log.Printf("Invalid send_interval %q, using default 10m", cfg.SendInterval)
+		}
+	}
+
 	store, err := storage.NewStore(cfg.TagsFile)
 	if err != nil {
 		log.Fatalf("Failed to load tag store: %v", err)
@@ -40,6 +51,8 @@ func main() {
 
 	ble := service.NewBLEService(store)
 	webhook := service.NewWebhookService(cfg.WebhookURL)
+	sender := service.NewSender(webhook, store, interval)
+	sender.Start()
 
 	// BLE scanning blocks, so run it in a goroutine.
 	go func() {
@@ -49,5 +62,5 @@ func main() {
 	}()
 
 	// UI blocks on the main goroutine (required by Fyne / CoreBluetooth).
-	ui.Run(store, webhook)
+	ui.Run(store, sender)
 }

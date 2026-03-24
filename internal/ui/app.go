@@ -16,13 +16,13 @@ import (
 )
 
 // Run starts the Fyne application. It blocks until the window is closed.
-func Run(store *storage.Store, webhook *service.WebhookService) {
+func Run(store *storage.Store, sender *service.Sender) {
 	a := fyneapp.New()
 	w := a.NewWindow("Ruuvi Listener")
 
 	statusLabel := widget.NewLabel("Scanning…")
 	lastSentLabel := widget.NewLabel("")
-	var lastSent time.Time
+	countdownLabel := widget.NewLabel("")
 
 	// tags is the snapshot used by the list; always updated on the Fyne thread.
 	var tags []*storage.Tag
@@ -101,13 +101,10 @@ func Run(store *storage.Store, webhook *service.WebhookService) {
 			return
 		}
 		go func() {
-			err := webhook.Send(selected)
+			err := sender.Send(selected)
 			fyne.Do(func() {
 				if err != nil {
 					dialog.ShowError(err, w)
-				} else {
-					lastSent = time.Now()
-					lastSentLabel.SetText("Sent just now")
 				}
 			})
 		}()
@@ -121,16 +118,17 @@ func Run(store *storage.Store, webhook *service.WebhookService) {
 		})
 	})
 
-	// Tick every 5 seconds so "last seen" ages stay current.
+	// Tick every 5 seconds to keep "last seen", "sent X ago" and countdown current.
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 		for range ticker.C {
 			fyne.Do(func() {
 				list.Refresh()
-				if !lastSent.IsZero() {
-					lastSentLabel.SetText("Sent " + timeAgo(lastSent))
+				if t := sender.LastSent(); !t.IsZero() {
+					lastSentLabel.SetText("Sent " + timeAgo(t))
 				}
+				countdownLabel.SetText(countdown(sender.NextSendAt()))
 			})
 		}
 	}()
@@ -139,16 +137,16 @@ func Run(store *storage.Store, webhook *service.WebhookService) {
 		statusLabel,
 		layout.NewSpacer(),
 		lastSentLabel,
+		countdownLabel,
 		sendBtn,
 	)
 
 	w.SetContent(container.NewBorder(nil, bottomBar, nil, nil, list))
-	w.Resize(fyne.NewSize(580, 380))
+	w.Resize(fyne.NewSize(620, 380))
 	w.ShowAndRun()
 }
 
-// timeAgo returns a human-readable age string for t ("just now", "30s ago",
-// "5m ago", "2h ago"). Returns "" for a zero time.
+// timeAgo returns a human-readable age string for t.
 func timeAgo(t time.Time) string {
 	if t.IsZero() {
 		return "never"
@@ -166,3 +164,19 @@ func timeAgo(t time.Time) string {
 	}
 }
 
+// countdown returns "Next in Xm Ys" until the given time.
+func countdown(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	d := time.Until(t).Round(time.Second)
+	if d <= 0 {
+		return "Next in…"
+	}
+	m := int(d.Minutes())
+	s := int(d.Seconds()) % 60
+	if m > 0 {
+		return fmt.Sprintf("Next in %dm %ds", m, s)
+	}
+	return fmt.Sprintf("Next in %ds", s)
+}

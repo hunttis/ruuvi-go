@@ -1,4 +1,5 @@
 {
   "webhook_url": "https://trmnl.com/api/custom_plugins/YOUR_PLUGIN_ID_HERE",
-  "tags_file": "tags.json"
+  "tags_file": "tags.json",
+  "send_interval": "10m"
 }
