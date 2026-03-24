@@ -1,0 +1,58 @@
+<!--
+RuuviTRMNL Plugin Template - Responsive Layout
+Adaptive layout that responds to screen size, orientation, and bit-depth
+Best for: All display sizes and configurations
+-->
+<div
+  class="layout layout--row sm:layout--row md:portrait:layout--col lg:layout--row layout--stretch-x gap--medium md:gap--large lg:gap--xlarge"
+>
+  {% for tag in ruuvi_tags %} {% assign now = 'now' | date: '%s' %} {% assign
+  lastUpdate = tag.lastTemperatureUpdate | default: tag.lastUpdated | date: '%s'
+  %} {% assign minutesOld = now | minus: lastUpdate | divided_by: 60 %} {%
+  assign isOffline = false %} {% assign isStale = false %} {% if minutesOld > 60
+  %} {% assign isOffline = true %} {% elsif minutesOld > 30 %} {% assign isStale
+  = true %} {% endif %}
+  <div
+    class="layout layout--col stretch-x gap--xsmall sm:gap--small md:gap--medium lg:gap--large {% if isOffline or isStale %}background--muted{% endif %} padding--small sm:padding--medium md:padding--large lg:padding--xlarge rounded--small md:rounded--medium lg:rounded--large"
+  >
+    <!-- Location Name with timestamp -->
+    <span
+      class="title title--small sm:title--medium md:title--large lg:title--xlarge text--center"
+      >{{ tag.name | truncate: 12 }}{% if isStale and tag.temperature %} ({{
+      tag.lastTemperatureUpdate | default: tag.lastUpdated | date: '%H:%M' }}){%
+      endif %}</span
+    >
+    <!-- Temperature -->
+    <span
+      class="value value--xxxlarge md:value--xxxlarge lg:value--xxxlarge value--tnums text--center"
+    >
+      {% if tag.temperature %}{{ tag.temperature | round: 1 }}°{% else %}-°{%
+      endif %}
+    </span>
+    <!-- Humidity -->
+    <span
+      class="value value--xxsmall sm:value--xsmall md:value--small lg:value--medium value--tnums text--center"
+    >
+      {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %}
+    </span>
+    <!-- Battery (hidden on smallest screens, shown on larger) -->
+    <span
+      class="label label--xxxsmall sm:label--xxsmall md:label--xsmall lg:label--small text--center sm:hidden md:visible"
+    >
+      {% if tag.battery %}{{ tag.battery }}mV{% endif %}
+    </span>
+    <!-- Status if offline or stale -->
+    {% if isOffline %}
+    <span
+      class="label label--xxxsmall sm:label--xxsmall md:label--xsmall lg:label--small text--center"
+      >OFFLINE</span
+    >
+    {% elsif isStale %}
+    <span
+      class="label label--xxxsmall sm:label--xxsmall md:label--xsmall lg:label--small text--center"
+      >{{ tag.lastUpdated | date: '%d.%m. %H:%M' }}</span
+    >
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
