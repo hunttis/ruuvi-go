@@ -12,11 +12,13 @@ import (
 
 // tagEntry matches the fields the Liquid template accesses via `tag.*`.
 type tagEntry struct {
-	Name                  string  `json:"name"`
-	Temperature           float64 `json:"temperature"`
-	Humidity              float64 `json:"humidity"`
-	LastUpdated           string  `json:"lastUpdated"`
-	LastTemperatureUpdate string  `json:"lastTemperatureUpdate"`
+	Name                      string  `json:"name"`
+	Temperature               float64 `json:"temperature"`
+	Humidity                  float64 `json:"humidity"`
+	LastUpdated               string  `json:"lastUpdated"`               // RFC3339 UTC — used by Liquid for age calc
+	LastTemperatureUpdate     string  `json:"lastTemperatureUpdate"`     // RFC3339 UTC — used by Liquid for age calc
+	LastUpdatedTime           string  `json:"lastUpdatedTime"`           // local HH:MM — used directly for display
+	LastTemperatureUpdateTime string  `json:"lastTemperatureUpdateTime"` // local HH:MM — used directly for display
 }
 
 type mergeVariables struct {
@@ -45,13 +47,16 @@ func NewWebhookService(url string) *WebhookService {
 func (w *WebhookService) Send(tags []*storage.Tag) error {
 	entries := make([]tagEntry, 0, len(tags))
 	for _, t := range tags {
-		ts := t.LastSeen.Format("2006-01-02T15:04:05")
+		tsUTC := t.LastSeen.UTC().Format(time.RFC3339)
+		tsLocal := t.LastSeen.Local().Format("15:04")
 		entries = append(entries, tagEntry{
-			Name:                  t.DisplayName(),
-			Temperature:           t.Temperature,
-			Humidity:              t.Humidity,
-			LastUpdated:           ts,
-			LastTemperatureUpdate: ts,
+			Name:                      t.DisplayName(),
+			Temperature:               t.Temperature,
+			Humidity:                  t.Humidity,
+			LastUpdated:               tsUTC,
+			LastTemperatureUpdate:     tsUTC,
+			LastUpdatedTime:           tsLocal,
+			LastTemperatureUpdateTime: tsLocal,
 		})
 	}
 

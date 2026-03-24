@@ -20,7 +20,7 @@ so lg: sizes are kept compact to fit the ~240px available height.
     <span
       class="title title--xxsmall sm:title--xsmall md:title--small text--center"
       >{{ tag.name | truncate: 12 }}{% if isOffline %} OFFLINE{% elsif isStale and tag.temperature %} ({{
-      tag.lastTemperatureUpdate | default: tag.lastUpdated | date: '%H:%M' }}){%
+      tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}){%
       endif %}</span
     >
     <!-- Temperature -->
