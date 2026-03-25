@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"ruuvi-listener/internal/service"
@@ -17,6 +19,25 @@ type config struct {
 	SendInterval string `json:"send_interval"`
 }
 
+// configDir returns the directory where config files live.
+// When running inside a .app bundle the executable is at Contents/MacOS/;
+// config files should be placed in Contents/Resources/.
+// When running from the command line it falls back to the working directory.
+func configDir() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return "."
+	}
+	dir := filepath.Dir(exe)
+	if strings.HasSuffix(dir, "/Contents/MacOS") {
+		resources := filepath.Join(dir, "../Resources")
+		if _, err := os.Stat(resources); err == nil {
+			return resources
+		}
+	}
+	return "."
+}
+
 func loadConfig(path string) (config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -27,12 +48,13 @@ func loadConfig(path string) (config, error) {
 }
 
 func main() {
-	cfg, err := loadConfig("config.json")
+	base := configDir()
+	cfg, err := loadConfig(filepath.Join(base, "config.json"))
 	if err != nil {
 		log.Fatalf("Failed to read config.json: %v\nCopy config.json.example to config.json and fill in your details.", err)
 	}
 	if cfg.TagsFile == "" {
-		cfg.TagsFile = "tags.json"
+		cfg.TagsFile = filepath.Join(base, "tags.json")
 	}
 
 	interval := 10 * time.Minute
