@@ -28,10 +28,19 @@ func Run(store *storage.Store, sender *service.Sender) {
 	var tags []*storage.Tag
 	tags = store.All()
 
-	list := widget.NewList(
+	var list *widget.List
+
+	refreshList := func() {
+		tags = store.All()
+		list.Refresh()
+	}
+
+	list = widget.NewList(
 		func() int { return len(tags) },
 		func() fyne.CanvasObject {
 			return container.NewHBox(
+				widget.NewButton("▲", nil),
+				widget.NewButton("▼", nil),
 				widget.NewCheck("", nil),
 				widget.NewLabel("placeholder name that is long enough"),
 				layout.NewSpacer(),
@@ -46,7 +55,19 @@ func Run(store *storage.Store, sender *service.Sender) {
 			}
 			t := tags[id]
 			row := obj.(*fyne.Container)
-			check := row.Objects[0].(*widget.Check)
+
+			upBtn := row.Objects[0].(*widget.Button)
+			downBtn := row.Objects[1].(*widget.Button)
+			upBtn.OnTapped = func() {
+				_ = store.Move(t.MAC, -1)
+				refreshList()
+			}
+			downBtn.OnTapped = func() {
+				_ = store.Move(t.MAC, 1)
+				refreshList()
+			}
+
+			check := row.Objects[2].(*widget.Check)
 			check.OnChanged = nil // prevent SetChecked from firing the stale handler
 			check.SetChecked(t.Selected)
 			check.OnChanged = func(checked bool) {
@@ -54,10 +75,10 @@ func Run(store *storage.Store, sender *service.Sender) {
 					fyne.Do(func() { dialog.ShowError(err, w) })
 				}
 			}
-			row.Objects[1].(*widget.Label).SetText(t.DisplayName())
-			row.Objects[3].(*widget.Label).SetText(fmt.Sprintf("%.1f°C", t.Temperature))
-			row.Objects[4].(*widget.Label).SetText(fmt.Sprintf("%.1f%%", t.Humidity))
-			row.Objects[5].(*widget.Label).SetText(timeAgo(t.LastSeen))
+			row.Objects[3].(*widget.Label).SetText(t.DisplayName())
+			row.Objects[5].(*widget.Label).SetText(fmt.Sprintf("%.1f°C", t.Temperature))
+			row.Objects[6].(*widget.Label).SetText(fmt.Sprintf("%.1f%%", t.Humidity))
+			row.Objects[7].(*widget.Label).SetText(timeAgo(t.LastSeen))
 		},
 	)
 
@@ -142,7 +163,7 @@ func Run(store *storage.Store, sender *service.Sender) {
 	)
 
 	w.SetContent(container.NewBorder(nil, bottomBar, nil, nil, list))
-	w.Resize(fyne.NewSize(620, 380))
+	w.Resize(fyne.NewSize(700, 380))
 	w.ShowAndRun()
 }
 

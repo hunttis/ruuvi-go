@@ -13,6 +13,7 @@ type Tag struct {
 	MAC         string    `json:"mac"`
 	Name        string    `json:"name,omitempty"`
 	Selected    bool      `json:"selected"`
+	SortOrder   int       `json:"sortOrder,omitempty"`
 	Temperature float64   `json:"temperature"`
 	Humidity    float64   `json:"humidity"`
 	Pressure    float64   `json:"pressure"`
@@ -114,8 +115,9 @@ func (s *Store) AllSelected() []*Tag {
 	return out
 }
 
-// All returns a snapshot of all known tags sorted: named tags first
-// (alphabetically), then unnamed tags (by MAC).
+// All returns a snapshot of all known tags. If any tag has a SortOrder set,
+// the list is sorted by SortOrder (custom user order). Otherwise tags are
+// sorted named-first alphabetically, then unnamed by MAC.
 func (s *Store) All() []*Tag {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -126,18 +128,89 @@ func (s *Store) All() []*Tag {
 		out = append(out, &cp)
 	}
 
-	sort.Slice(out, func(i, j int) bool {
-		ni, nj := out[i].Name != "", out[j].Name != ""
+	sortSlice(out)
+	return out
+}
+
+// Move shifts the tag identified by mac one position in the given direction
+// (delta = -1 for up, +1 for down) within the sorted list and persists the change.
+func (s *Store) Move(mac string, delta int) error {
+	s.mu.Lock()
+
+	// Build sorted slice under the write lock (same logic as All).
+	tags := make([]*Tag, 0, len(s.tags))
+	for _, t := range s.tags {
+		tags = append(tags, t)
+	}
+	sortSlice(tags)
+
+	// Find the target tag.
+	idx := -1
+	for i, t := range tags {
+		if t.MAC == mac {
+			idx = i
+			break
+		}
+	}
+
+	if idx < 0 {
+		s.mu.Unlock()
+		return nil
+	}
+
+	newIdx := idx + delta
+	if newIdx < 0 || newIdx >= len(tags) {
+		s.mu.Unlock()
+		return nil
+	}
+
+	// Assign sequential SortOrder to all tags so they are fully explicit.
+	for i, t := range tags {
+		t.SortOrder = i + 1
+	}
+	// Swap the two positions.
+	tags[idx].SortOrder, tags[newIdx].SortOrder = tags[newIdx].SortOrder, tags[idx].SortOrder
+
+	s.mu.Unlock()
+	return s.save()
+}
+
+// sortSlice sorts a slice of Tag pointers in-place: by SortOrder when any tag
+// has a non-zero value, otherwise named tags first (alphabetical) then by MAC.
+func sortSlice(tags []*Tag) {
+	customOrder := false
+	for _, t := range tags {
+		if t.SortOrder > 0 {
+			customOrder = true
+			break
+		}
+	}
+
+	if customOrder {
+		n := len(tags)
+		sort.Slice(tags, func(i, j int) bool {
+			oi, oj := tags[i].SortOrder, tags[j].SortOrder
+			if oi == 0 {
+				oi = n + 1
+			}
+			if oj == 0 {
+				oj = n + 1
+			}
+			return oi < oj
+		})
+		return
+	}
+
+	sort.Slice(tags, func(i, j int) bool {
+		ni, nj := tags[i].Name != "", tags[j].Name != ""
 		if ni != nj {
 			return ni // named tags first
 		}
 		if ni {
-			return out[i].Name < out[j].Name
+			return tags[i].Name < tags[j].Name
 		}
-		return out[i].MAC < out[j].MAC
+		return tags[i].MAC < tags[j].MAC
 	})
-
-	return out
 }
 
 func (s *Store) load() error {
