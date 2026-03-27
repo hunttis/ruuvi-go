@@ -24,7 +24,7 @@ Optimised for full-screen (800×480px).
         {% if tag.temperature %}{{ tag.temperature | round: 1 }}°{% else %}-°{% endif %}
       </span>
       <!-- Humidity -->
-      <span class="value value--large value--tnums text--center">
+      <span class="value value--medium value--tnums text--center">
         {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %}
       </span>
     </div>
@@ -34,24 +34,16 @@ Optimised for full-screen (800×480px).
   <!-- Divider -->
   <div class="divider"></div>
 
-  <!-- Weather section -->
-  {% if weather_current.symbolText %}
+  <!-- Weather section — always rendered so stale-payload issues are visible -->
   <div class="layout layout--col gap--small padding--small rounded--small background--muted">
+    {% if weather_current.symbolText %}
     <!-- Current conditions header -->
     <div class="layout layout--row gap--medium layout--stretch-x">
-      <span class="title title--xsmall">
-        Helsinki nyt
-      </span>
-      <span class="value value--medium value--tnums">
-        {{ weather_current.temperature | round: 0 }}°
-      </span>
-      <span class="label label--small">
-        {{ weather_current.symbolText }}
-      </span>
+      <span class="title title--xsmall">Helsinki nyt</span>
+      <span class="value value--medium value--tnums">{{ weather_current.temperature | round: 0 }}°</span>
+      <span class="label label--small">{{ weather_current.symbolText }}</span>
       {% if weather_current.precipitation > 0 %}
-      <span class="label label--small">
-        {{ weather_current.precipitation }}mm/h
-      </span>
+      <span class="label label--small">{{ weather_current.precipitation }}mm/h</span>
       {% endif %}
     </div>
     <!-- Hourly forecast row -->
@@ -67,7 +59,9 @@ Optimised for full-screen (800×480px).
       </div>
       {% endfor %}
     </div>
+    {% else %}
+    <span class="label label--small text--center">Säätietoja ei saatavilla</span>
+    {% endif %}
   </div>
-  {% endif %}
 
 </div>
