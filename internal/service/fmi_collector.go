@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -64,16 +65,10 @@ type FmiCollector struct {
 	mu       sync.Mutex
 	cached   *WeatherData
 	cacheAt  time.Time
+	lastErr  error
 	place    string
 	client   *http.Client
 	location *time.Location
-}
-
-// LastFetchedAt returns the time the cache was last successfully populated (zero if never).
-func (f *FmiCollector) LastFetchedAt() time.Time {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.cacheAt
 }
 
 // NewFmiCollector creates a collector for the given place name (e.g. "Helsinki").
@@ -90,6 +85,47 @@ func NewFmiCollector(place string) *FmiCollector {
 	}
 }
 
+// LastFetchedAt returns the time the cache was last successfully populated (zero if never).
+func (f *FmiCollector) LastFetchedAt() time.Time {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.cacheAt
+}
+
+// LastError returns the most recent fetch error, or nil if the last fetch succeeded.
+func (f *FmiCollector) LastError() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.lastErr
+}
+
+// Status returns a short human-readable status string for display in the UI.
+func (f *FmiCollector) Status() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.lastErr != nil {
+		return "FMI error: " + f.lastErr.Error()
+	}
+	if f.cacheAt.IsZero() {
+		return "FMI: fetching…"
+	}
+	return "FMI: " + timeAgoSimple(f.cacheAt)
+}
+
+func timeAgoSimple(t time.Time) string {
+	d := time.Since(t).Round(time.Second)
+	switch {
+	case d < 5*time.Second:
+		return "just now"
+	case d < time.Minute:
+		return fmt.Sprintf("%ds ago", int(d.Seconds()))
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	default:
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	}
+}
+
 // Get returns weather data, using a 30-minute cache.
 // Falls back to stale cached data if the API is unreachable.
 func (f *FmiCollector) Get() (*WeatherData, error) {
@@ -102,6 +138,7 @@ func (f *FmiCollector) Get() (*WeatherData, error) {
 
 	data, err := f.fetch()
 	if err != nil {
+		f.lastErr = err
 		if f.cached != nil {
 			log.Printf("fmi: fetch failed (%v); returning stale cache", err)
 			return f.cached, nil
@@ -109,6 +146,7 @@ func (f *FmiCollector) Get() (*WeatherData, error) {
 		return nil, err
 	}
 
+	f.lastErr = nil
 	f.cached = data
 	f.cacheAt = time.Now()
 	return f.cached, nil
@@ -118,34 +156,54 @@ func (f *FmiCollector) fetch() (*WeatherData, error) {
 	now := time.Now().UTC()
 	end := now.Add(fmiHorizon)
 
-	url := fmt.Sprintf(
-		"%s?service=WFS&version=2.0.0&request=getFeature"+
-			"&storedquery_id=fmi::forecast::hirlam::surface::point::simple"+
-			"&place=%s&parameters=Temperature,FeelsLike,WeatherSymbol3,Precipitation1h"+
-			"&timestep=60&starttime=%s&endtime=%s",
-		fmiBaseURL, f.place,
-		now.Format(time.RFC3339),
-		end.Format(time.RFC3339),
-	)
+	q := url.Values{}
+	q.Set("service", "WFS")
+	q.Set("version", "2.0.0")
+	q.Set("request", "getFeature")
+	q.Set("storedquery_id", "fmi::forecast::hirlam::surface::point::simple")
+	q.Set("place", f.place)
+	q.Set("parameters", "Temperature,FeelsLike,WeatherSymbol3,Precipitation1h")
+	q.Set("timestep", "60")
+	q.Set("starttime", now.Format(time.RFC3339))
+	q.Set("endtime", end.Format(time.RFC3339))
 
-	resp, err := f.client.Get(url)
+	reqURL := fmiBaseURL + "?" + q.Encode()
+	log.Printf("fmi: fetching %s", reqURL)
+
+	resp, err := f.client.Get(reqURL)
 	if err != nil {
 		return nil, fmt.Errorf("http get: %w", err)
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server returned %d", resp.StatusCode)
-	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read body: %w", err)
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		// Log the first 500 bytes of the error body to help diagnose API issues.
+		snippet := string(body)
+		if len(snippet) > 500 {
+			snippet = snippet[:500] + "…"
+		}
+		log.Printf("fmi: server returned %d: %s", resp.StatusCode, snippet)
+		return nil, fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+
 	elements, err := parseBsWfsElements(body)
 	if err != nil {
 		return nil, fmt.Errorf("parse xml: %w", err)
+	}
+
+	if len(elements) == 0 {
+		// Log the body so we can see what the API actually returned.
+		snippet := string(body)
+		if len(snippet) > 500 {
+			snippet = snippet[:500] + "…"
+		}
+		log.Printf("fmi: parsed 0 elements from response: %s", snippet)
+		return nil, fmt.Errorf("no BsWfsElements in response")
 	}
 
 	return f.buildWeatherData(elements)

@@ -23,7 +23,7 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 	statusLabel := widget.NewLabel("Scanning…")
 	lastSentLabel := widget.NewLabel("")
 	countdownLabel := widget.NewLabel("")
-	weatherLabel := widget.NewLabel("FMI: –")
+	weatherLabel := widget.NewLabel("FMI: fetching…")
 
 	// tags is the snapshot used by the list; always updated on the Fyne thread.
 	var tags []*storage.Tag
@@ -168,9 +168,7 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 				}
 				countdownLabel.SetText(countdown(sender.NextSendAt()))
 				if fmi != nil {
-					if t := fmi.LastFetchedAt(); !t.IsZero() {
-						weatherLabel.SetText("FMI: " + timeAgo(t))
-					}
+					weatherLabel.SetText(fmi.Status())
 				}
 			})
 		}
