@@ -24,8 +24,9 @@ type tagEntry struct {
 }
 
 type mergeVariables struct {
-	RuuviTags []tagEntry   `json:"ruuvi_tags"`
-	Weather   *WeatherData `json:"weather,omitempty"`
+	RuuviTags       []tagEntry     `json:"ruuvi_tags"`
+	WeatherCurrent  *ForecastHour  `json:"weather_current,omitempty"`
+	WeatherForecast []ForecastHour `json:"weather_forecast,omitempty"`
 }
 
 type webhookPayload struct {
@@ -83,7 +84,8 @@ func (w *WebhookService) Send(tags []*storage.Tag) error {
 		if err != nil {
 			log.Printf("webhook: weather unavailable: %v", err)
 		} else {
-			mv.Weather = wd
+			mv.WeatherCurrent = &wd.Current
+			mv.WeatherForecast = wd.Forecast
 		}
 	}
 
