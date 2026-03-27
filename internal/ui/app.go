@@ -18,7 +18,7 @@ import (
 // Run starts the Fyne application. It blocks until the window is closed.
 func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector) {
 	a := fyneapp.New()
-	w := a.NewWindow("Ruuvi Listener")
+	w := a.NewWindow("Ruuvi Listener — " + store.Path())
 
 	statusLabel := widget.NewLabel("Scanning…")
 	lastSentLabel := widget.NewLabel("")

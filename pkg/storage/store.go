@@ -58,6 +58,9 @@ func NewStore(path string) (*Store, error) {
 	return s, nil
 }
 
+// Path returns the file path where tags are persisted.
+func (s *Store) Path() string { return s.path }
+
 // SetOnChange registers a callback that is invoked after any in-memory update.
 // Safe to call before or after scanning starts.
 func (s *Store) SetOnChange(fn func()) {

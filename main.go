@@ -15,8 +15,8 @@ import (
 
 type config struct {
 	WebhookURL   string `json:"webhook_url"`
-	TagsFile     string `json:"tags_file"`
 	SendInterval string `json:"send_interval"`
+	// tags_file intentionally removed — always stored in Application Support
 }
 
 // appSupportDir returns ~/Library/Application Support/RuuviListener, creating it if needed.
@@ -76,11 +76,9 @@ func main() {
 	}
 	log.Printf("Config loaded from: %s", cfgPath)
 
-	// tags.json always lives in Application Support so names survive rebuilds.
-	if cfg.TagsFile == "" {
-		cfg.TagsFile = filepath.Join(support, "tags.json")
-	}
-	log.Printf("Tags file: %s", cfg.TagsFile)
+	// Tags always live in Application Support — not configurable, survives rebuilds.
+	tagsFile := filepath.Join(support, "tags.json")
+	log.Printf("Tags file: %s", tagsFile)
 
 	interval := 10 * time.Minute
 	if cfg.SendInterval != "" {
@@ -91,7 +89,7 @@ func main() {
 		}
 	}
 
-	store, err := storage.NewStore(cfg.TagsFile)
+	store, err := storage.NewStore(tagsFile)
 	if err != nil {
 		log.Fatalf("Failed to load tag store: %v", err)
 	}
@@ -111,7 +109,6 @@ func main() {
 	}()
 
 	ble := service.NewBLEService(store)
-	// BLE scanning blocks, so run it in a goroutine.
 	go func() {
 		if err := ble.Start(); err != nil {
 			log.Printf("BLE error: %v", err)
