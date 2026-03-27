@@ -160,7 +160,7 @@ func (f *FmiCollector) fetch() (*WeatherData, error) {
 	// the storedquery_id (fmi::forecast::...) which the FMI server rejects.
 	reqURL := fmt.Sprintf(
 		"%s?service=WFS&version=2.0.0&request=getFeature"+
-			"&storedquery_id=fmi::forecast::hirlam::surface::point::simple"+
+			"&storedquery_id=fmi::forecast::harmonie::surface::point::simple"+
 			"&place=%s&parameters=Temperature,WeatherSymbol3,Precipitation1h"+
 			"&timestep=60&starttime=%s&endtime=%s",
 		fmiBaseURL,

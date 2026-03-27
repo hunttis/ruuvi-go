@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"sort"
@@ -54,6 +55,10 @@ func NewStore(path string) (*Store, error) {
 		}
 	} else {
 		log.Printf("store: loaded %d tags from %s", len(s.tags), path)
+	}
+	// Write immediately to verify the path is writable and to create the file.
+	if err := s.save(); err != nil {
+		return nil, fmt.Errorf("store: cannot write to %s: %w", path, err)
 	}
 	return s, nil
 }
