@@ -1,0 +1,275 @@
+package service
+
+import (
+	"bytes"
+	"encoding/xml"
+	"fmt"
+	"io"
+	"log"
+	"math"
+	"net/http"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+)
+
+const (
+	fmiBaseURL  = "https://opendata.fmi.fi/wfs"
+	bsWfsNS     = "http://xml.fmi.fi/schema/wfs/2.0"
+	fmiCacheTTL = 30 * time.Minute
+	fmiHorizon  = 6 * time.Hour
+)
+
+var weatherSymbols = map[int]string{
+	1:  "Clear",
+	2:  "Partly cloudy",
+	3:  "Cloudy",
+	21: "Light showers",
+	22: "Showers",
+	23: "Heavy showers",
+	31: "Light rain",
+	32: "Rain",
+	33: "Heavy rain",
+	51: "Light snow",
+	52: "Snow",
+	53: "Heavy snow",
+	61: "Thunder",
+	71: "Light sleet sh.",
+	72: "Sleet showers",
+	73: "Heavy sleet sh.",
+	81: "Light sleet",
+	82: "Sleet",
+	83: "Heavy sleet",
+}
+
+// ForecastHour holds weather data for one forecast step.
+type ForecastHour struct {
+	Time          string  `json:"time"`          // HH:MM in Helsinki timezone
+	Temperature   float64 `json:"temperature"`   // °C
+	FeelsLike     float64 `json:"feelsLike"`     // °C
+	SymbolText    string  `json:"symbolText"`    // human-readable condition
+	Precipitation float64 `json:"precipitation"` // mm/h
+}
+
+// WeatherData holds current conditions plus next hourly forecasts.
+type WeatherData struct {
+	Current  ForecastHour   `json:"current"`
+	Forecast []ForecastHour `json:"forecast"` // next 5 hours
+}
+
+// FmiCollector fetches and caches FMI open data forecasts.
+type FmiCollector struct {
+	mu       sync.Mutex
+	cached   *WeatherData
+	cacheAt  time.Time
+	place    string
+	client   *http.Client
+	location *time.Location
+}
+
+// NewFmiCollector creates a collector for the given place name (e.g. "Helsinki").
+func NewFmiCollector(place string) *FmiCollector {
+	loc, err := time.LoadLocation("Europe/Helsinki")
+	if err != nil {
+		log.Printf("fmi: cannot load Europe/Helsinki timezone (%v); using UTC+2", err)
+		loc = time.FixedZone("EET", 2*3600)
+	}
+	return &FmiCollector{
+		place:    place,
+		client:   &http.Client{Timeout: 15 * time.Second},
+		location: loc,
+	}
+}
+
+// Get returns weather data, using a 30-minute cache.
+// Falls back to stale cached data if the API is unreachable.
+func (f *FmiCollector) Get() (*WeatherData, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.cached != nil && time.Since(f.cacheAt) < fmiCacheTTL {
+		return f.cached, nil
+	}
+
+	data, err := f.fetch()
+	if err != nil {
+		if f.cached != nil {
+			log.Printf("fmi: fetch failed (%v); returning stale cache", err)
+			return f.cached, nil
+		}
+		return nil, err
+	}
+
+	f.cached = data
+	f.cacheAt = time.Now()
+	return f.cached, nil
+}
+
+func (f *FmiCollector) fetch() (*WeatherData, error) {
+	now := time.Now().UTC()
+	end := now.Add(fmiHorizon)
+
+	url := fmt.Sprintf(
+		"%s?service=WFS&version=2.0.0&request=getFeature"+
+			"&storedquery_id=fmi::forecast::hirlam::surface::point::simple"+
+			"&place=%s&parameters=Temperature,FeelsLike,WeatherSymbol3,Precipitation1h"+
+			"&timestep=60&starttime=%s&endtime=%s",
+		fmiBaseURL, f.place,
+		now.Format(time.RFC3339),
+		end.Format(time.RFC3339),
+	)
+
+	resp, err := f.client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("http get: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read body: %w", err)
+	}
+
+	elements, err := parseBsWfsElements(body)
+	if err != nil {
+		return nil, fmt.Errorf("parse xml: %w", err)
+	}
+
+	return f.buildWeatherData(elements)
+}
+
+type rawWfsElement struct {
+	time      string
+	paramName string
+	value     string
+}
+
+// parseBsWfsElements decodes BsWfsElement nodes from a WFS XML response.
+func parseBsWfsElements(data []byte) ([]rawWfsElement, error) {
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	var elements []rawWfsElement
+	var cur *rawWfsElement
+	var field string
+
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		switch t := tok.(type) {
+		case xml.StartElement:
+			if t.Name.Space == bsWfsNS && t.Name.Local == "BsWfsElement" {
+				cur = &rawWfsElement{}
+			} else if cur != nil && t.Name.Space == bsWfsNS {
+				field = t.Name.Local
+			}
+		case xml.CharData:
+			if cur != nil && field != "" {
+				s := strings.TrimSpace(string(t))
+				switch field {
+				case "Time":
+					cur.time = s
+				case "ParameterName":
+					cur.paramName = s
+				case "ParameterValue":
+					cur.value = s
+				}
+			}
+		case xml.EndElement:
+			if t.Name.Space == bsWfsNS {
+				if t.Name.Local == "BsWfsElement" && cur != nil {
+					elements = append(elements, *cur)
+					cur = nil
+				}
+				field = ""
+			}
+		}
+	}
+	return elements, nil
+}
+
+type hourParams struct {
+	temperature   float64
+	feelsLike     float64
+	weatherSymbol float64
+	precipitation float64
+}
+
+func (f *FmiCollector) buildWeatherData(elements []rawWfsElement) (*WeatherData, error) {
+	byTime := make(map[string]*hourParams)
+	var orderedTimes []string
+
+	for _, el := range elements {
+		if _, exists := byTime[el.time]; !exists {
+			byTime[el.time] = &hourParams{}
+			orderedTimes = append(orderedTimes, el.time)
+		}
+		val, err := strconv.ParseFloat(el.value, 64)
+		if err != nil || math.IsNaN(val) {
+			continue
+		}
+		p := byTime[el.time]
+		switch el.paramName {
+		case "Temperature":
+			p.temperature = val
+		case "FeelsLike":
+			p.feelsLike = val
+		case "WeatherSymbol3":
+			p.weatherSymbol = val
+		case "Precipitation1h":
+			p.precipitation = val
+		}
+	}
+
+	// Deduplicate while preserving order, then sort chronologically.
+	seen := make(map[string]bool)
+	var times []string
+	for _, t := range orderedTimes {
+		if !seen[t] {
+			seen[t] = true
+			times = append(times, t)
+		}
+	}
+	sort.Strings(times)
+
+	if len(times) == 0 {
+		return nil, fmt.Errorf("no forecast data in response")
+	}
+
+	toHour := func(ts string, p *hourParams) ForecastHour {
+		t, _ := time.Parse(time.RFC3339, ts)
+		local := t.In(f.location)
+		sym := int(math.Round(p.weatherSymbol))
+		text, ok := weatherSymbols[sym]
+		if !ok && sym != 0 {
+			text = fmt.Sprintf("(%d)", sym)
+		}
+		prec := math.Round(p.precipitation*10) / 10
+		return ForecastHour{
+			Time:          local.Format("15:04"),
+			Temperature:   p.temperature,
+			FeelsLike:     p.feelsLike,
+			SymbolText:    text,
+			Precipitation: prec,
+		}
+	}
+
+	current := toHour(times[0], byTime[times[0]])
+
+	var forecast []ForecastHour
+	for i := 1; i < len(times) && len(forecast) < 5; i++ {
+		forecast = append(forecast, toHour(times[i], byTime[times[i]]))
+	}
+
+	return &WeatherData{Current: current, Forecast: forecast}, nil
+}

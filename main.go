@@ -72,7 +72,8 @@ func main() {
 	}
 
 	ble := service.NewBLEService(store)
-	webhook := service.NewWebhookService(cfg.WebhookURL)
+	fmi := service.NewFmiCollector("Helsinki")
+	webhook := service.NewWebhookService(cfg.WebhookURL, fmi)
 	sender := service.NewSender(webhook, store, interval)
 	sender.Start()
 

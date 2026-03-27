@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -22,7 +23,8 @@ type tagEntry struct {
 }
 
 type mergeVariables struct {
-	RuuviTags []tagEntry `json:"ruuvi_tags"`
+	RuuviTags []tagEntry   `json:"ruuvi_tags"`
+	Weather   *WeatherData `json:"weather,omitempty"`
 }
 
 type webhookPayload struct {
@@ -31,19 +33,22 @@ type webhookPayload struct {
 
 // WebhookService posts tag data to the configured TRMNL endpoint.
 type WebhookService struct {
-	url    string
-	client *http.Client
+	url     string
+	client  *http.Client
+	weather *FmiCollector // optional; nil disables weather in payload
 }
 
 // NewWebhookService creates a WebhookService for the given URL.
-func NewWebhookService(url string) *WebhookService {
+// Pass a non-nil FmiCollector to include weather data in each send.
+func NewWebhookService(url string, weather *FmiCollector) *WebhookService {
 	return &WebhookService{
-		url:    url,
-		client: &http.Client{Timeout: 10 * time.Second},
+		url:     url,
+		client:  &http.Client{Timeout: 10 * time.Second},
+		weather: weather,
 	}
 }
 
-// Send posts all tags to the TRMNL webhook as a merge_variables payload.
+// Send posts all tags (and optional weather) to the TRMNL webhook.
 func (w *WebhookService) Send(tags []*storage.Tag) error {
 	entries := make([]tagEntry, 0, len(tags))
 	for _, t := range tags {
@@ -60,9 +65,18 @@ func (w *WebhookService) Send(tags []*storage.Tag) error {
 		})
 	}
 
-	payload := webhookPayload{
-		MergeVariables: mergeVariables{RuuviTags: entries},
+	mv := mergeVariables{RuuviTags: entries}
+
+	if w.weather != nil {
+		wd, err := w.weather.Get()
+		if err != nil {
+			log.Printf("webhook: weather unavailable: %v", err)
+		} else {
+			mv.Weather = wd
+		}
 	}
+
+	payload := webhookPayload{MergeVariables: mv}
 
 	body, err := json.Marshal(payload)
 	if err != nil {
