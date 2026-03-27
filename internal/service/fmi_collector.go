@@ -161,7 +161,7 @@ func (f *FmiCollector) fetch() (*WeatherData, error) {
 	reqURL := fmt.Sprintf(
 		"%s?service=WFS&version=2.0.0&request=getFeature"+
 			"&storedquery_id=fmi::forecast::hirlam::surface::point::simple"+
-			"&place=%s&parameters=Temperature,FeelsLike,WeatherSymbol3,Precipitation1h"+
+			"&place=%s&parameters=Temperature,WeatherSymbol3,Precipitation1h"+
 			"&timestep=60&starttime=%s&endtime=%s",
 		fmiBaseURL,
 		url.QueryEscape(f.place),
@@ -287,8 +287,6 @@ func (f *FmiCollector) buildWeatherData(elements []rawWfsElement) (*WeatherData,
 		switch el.paramName {
 		case "Temperature":
 			p.temperature = val
-		case "FeelsLike":
-			p.feelsLike = val
 		case "WeatherSymbol3":
 			p.weatherSymbol = val
 		case "Precipitation1h":
@@ -323,7 +321,7 @@ func (f *FmiCollector) buildWeatherData(elements []rawWfsElement) (*WeatherData,
 		return ForecastHour{
 			Time:          local.Format("15:04"),
 			Temperature:   p.temperature,
-			FeelsLike:     p.feelsLike,
+			FeelsLike:     p.temperature, // HIRLAM doesn't provide FeelsLike
 			SymbolText:    text,
 			Precipitation: prec,
 		}

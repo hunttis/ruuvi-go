@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"sort"
 	"sync"
@@ -45,8 +46,14 @@ func NewStore(path string) (*Store, error) {
 		tags: make(map[string]*Tag),
 		path: path,
 	}
-	if err := s.load(); err != nil && !os.IsNotExist(err) {
-		return nil, err
+	if err := s.load(); err != nil {
+		if os.IsNotExist(err) {
+			log.Printf("store: no existing tags file at %s, starting fresh", path)
+		} else {
+			return nil, err
+		}
+	} else {
+		log.Printf("store: loaded %d tags from %s", len(s.tags), path)
 	}
 	return s, nil
 }
@@ -233,5 +240,10 @@ func (s *Store) save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(s.path, data, 0644)
+	if err := os.WriteFile(s.path, data, 0644); err != nil {
+		log.Printf("store: failed to save to %s: %v", s.path, err)
+		return err
+	}
+	log.Printf("store: saved to %s", s.path)
+	return nil
 }
