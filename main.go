@@ -19,11 +19,23 @@ type config struct {
 	SendInterval string `json:"send_interval"`
 }
 
-// configDir returns the directory where config files live.
-// When running inside a .app bundle the executable is at Contents/MacOS/;
-// config files should be placed in Contents/Resources/.
-// When running from the command line it falls back to the working directory.
-func configDir() string {
+// appSupportDir returns ~/Library/Application Support/RuuviListener, creating it if needed.
+// This directory survives app rebuilds and reinstalls.
+func appSupportDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "."
+	}
+	dir := filepath.Join(home, "Library", "Application Support", "RuuviListener")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		log.Printf("Warning: could not create app support dir: %v", err)
+	}
+	return dir
+}
+
+// bundleResourcesDir returns the Resources directory when running inside a
+// .app bundle, or the current working directory otherwise.
+func bundleResourcesDir() string {
 	exe, err := os.Executable()
 	if err != nil {
 		return "."
@@ -48,14 +60,27 @@ func loadConfig(path string) (config, error) {
 }
 
 func main() {
-	base := configDir()
-	cfg, err := loadConfig(filepath.Join(base, "config.json"))
+	support := appSupportDir()
+
+	// Look for config.json in Application Support first so it survives rebuilds.
+	// Fall back to the bundle resources / working directory.
+	cfgPath := filepath.Join(support, "config.json")
+	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+		cfgPath = filepath.Join(bundleResourcesDir(), "config.json")
+	}
+
+	cfg, err := loadConfig(cfgPath)
 	if err != nil {
-		log.Fatalf("Failed to read config.json: %v\nCopy config.json.example to config.json and fill in your details.", err)
+		log.Fatalf("Failed to read config.json: %v\n"+
+			"Place config.json in %s or in the app bundle Resources folder.", err, support)
 	}
+	log.Printf("Config loaded from: %s", cfgPath)
+
+	// tags.json always lives in Application Support so names survive rebuilds.
 	if cfg.TagsFile == "" {
-		cfg.TagsFile = filepath.Join(base, "tags.json")
+		cfg.TagsFile = filepath.Join(support, "tags.json")
 	}
+	log.Printf("Tags file: %s", cfg.TagsFile)
 
 	interval := 10 * time.Minute
 	if cfg.SendInterval != "" {
@@ -71,12 +96,21 @@ func main() {
 		log.Fatalf("Failed to load tag store: %v", err)
 	}
 
-	ble := service.NewBLEService(store)
 	fmi := service.NewFmiCollector("Helsinki")
 	webhook := service.NewWebhookService(cfg.WebhookURL, fmi)
 	sender := service.NewSender(webhook, store, interval)
 	sender.Start()
 
+	// Fetch FMI forecast immediately so weather data is ready before the first send.
+	go func() {
+		if _, err := fmi.Get(); err != nil {
+			log.Printf("FMI initial fetch failed: %v", err)
+		} else {
+			log.Printf("FMI initial fetch succeeded")
+		}
+	}()
+
+	ble := service.NewBLEService(store)
 	// BLE scanning blocks, so run it in a goroutine.
 	go func() {
 		if err := ble.Start(); err != nil {
