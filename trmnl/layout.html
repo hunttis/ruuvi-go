@@ -4,7 +4,7 @@ Optimised for half-vertical mashup (800×240px).
 The lg: breakpoint fires at full device width (800px) even in half-vertical,
 so lg: sizes are kept compact to fit the ~240px available height.
 -->
-<div class="layout layout--col layout--stretch gap--xsmall">
+<div class="layout layout--col layout--stretch-x gap--xsmall">
   <!-- Ruuvi sensor tags row -->
   <div class="layout layout--row layout--stretch-x gap--small md:gap--medium">
     {% for tag in ruuvi_tags %} {% assign now = 'now' | date: '%s' %} {% assign
