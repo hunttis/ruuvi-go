@@ -15,13 +15,13 @@ Optimised for full-screen (800×480px).
     {% if minutesOld > 60 %}{% assign isOffline = true %}
     {% elsif minutesOld > 30 %}{% assign isStale = true %}{% endif %}
     <div class="layout layout--col stretch-x gap--xsmall {% if isOffline or isStale %}background--muted{% endif %} padding--small rounded--small">
-      <span class="title title--small text--center">
+      <span class="title title--xsmall text--center">
         {{ tag.name | truncate: 14 }}{% if isOffline %} OFFLINE{% elsif isStale and tag.temperature %} ({{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}){% endif %}
       </span>
-      <span class="value value--xxlarge value--tnums text--center">
+      <span class="value value--xlarge value--tnums text--center">
         {% if tag.temperature %}{{ tag.temperature | round: 1 }}°{% else %}-°{% endif %}
       </span>
-      <span class="value value--medium value--tnums text--center">
+      <span class="value value--small value--tnums text--center">
         {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %}
       </span>
     </div>
@@ -31,15 +31,32 @@ Optimised for full-screen (800×480px).
   <!-- Divider -->
   <div class="divider"></div>
 
-  <!-- Weather debug: unconditional output to confirm what Liquid sees -->
-  <span class="label label--small">
-    sym={{ weather_current.symbolText }} temp={{ weather_current.temperature }}
-  </span>
-
+  <!-- Weather section -->
   {% if weather_current.symbolText %}
-  <span class="label label--small">IF BRANCH: {{ weather_current.symbolText }} {{ weather_current.temperature | round: 0 }}°</span>
+  <!-- Current conditions -->
+  <div class="layout layout--row gap--medium layout--stretch-x">
+    <span class="title title--xsmall">Helsinki</span>
+    <span class="value value--large value--tnums">{{ weather_current.temperature | round: 0 }}°</span>
+    <span class="label label--small">{{ weather_current.symbolText }}</span>
+    {% if weather_current.precipitation > 0 %}
+    <span class="label label--small">{{ weather_current.precipitation }}mm/h</span>
+    {% endif %}
+  </div>
+  <!-- Hourly forecast -->
+  <div class="layout layout--row gap--medium layout--stretch-x">
+    {% for hour in weather_forecast %}
+    <div class="layout layout--col text--center gap--xsmall">
+      <span class="label label--xsmall">{{ hour.time }}</span>
+      <span class="value value--medium value--tnums">{{ hour.temperature | round: 0 }}°</span>
+      <span class="label label--xxsmall" style="white-space:nowrap;overflow:hidden;max-width:6rem;">{{ hour.symbolText }}</span>
+      {% if hour.precipitation > 0 %}
+      <span class="label label--xxsmall value--tnums">{{ hour.precipitation }}mm</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
   {% else %}
-  <span class="label label--small">ELSE BRANCH: no weather data in payload</span>
+  <span class="label label--small">Säätietoja ei saatavilla</span>
   {% endif %}
 
 </div>
