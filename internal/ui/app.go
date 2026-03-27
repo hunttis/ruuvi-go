@@ -16,13 +16,14 @@ import (
 )
 
 // Run starts the Fyne application. It blocks until the window is closed.
-func Run(store *storage.Store, sender *service.Sender) {
+func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector) {
 	a := fyneapp.New()
 	w := a.NewWindow("Ruuvi Listener")
 
 	statusLabel := widget.NewLabel("Scanning…")
 	lastSentLabel := widget.NewLabel("")
 	countdownLabel := widget.NewLabel("")
+	weatherLabel := widget.NewLabel("FMI: –")
 
 	// tags is the snapshot used by the list; always updated on the Fyne thread.
 	var tags []*storage.Tag
@@ -131,6 +132,22 @@ func Run(store *storage.Store, sender *service.Sender) {
 		}()
 	})
 
+	payloadBtn := widget.NewButton("Last Payload", func() {
+		payload := sender.LastPayload()
+		if payload == "" {
+			dialog.ShowInformation("Last Payload", "Nothing has been sent yet.", w)
+			return
+		}
+		entry := widget.NewMultiLineEntry()
+		entry.SetText(payload)
+		entry.Wrapping = fyne.TextWrapOff
+
+		pw := a.NewWindow("Last Sent Payload")
+		pw.SetContent(container.NewScroll(entry))
+		pw.Resize(fyne.NewSize(700, 500))
+		pw.Show()
+	})
+
 	// Wire store updates → list refresh on the Fyne thread.
 	store.SetOnChange(func() {
 		fyne.Do(func() {
@@ -139,7 +156,7 @@ func Run(store *storage.Store, sender *service.Sender) {
 		})
 	})
 
-	// Tick every 5 seconds to keep "last seen", "sent X ago" and countdown current.
+	// Tick every 5 seconds to keep "last seen", "sent X ago", countdown, and weather label current.
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
@@ -150,15 +167,22 @@ func Run(store *storage.Store, sender *service.Sender) {
 					lastSentLabel.SetText("Sent " + timeAgo(t))
 				}
 				countdownLabel.SetText(countdown(sender.NextSendAt()))
+				if fmi != nil {
+					if t := fmi.LastFetchedAt(); !t.IsZero() {
+						weatherLabel.SetText("FMI: " + timeAgo(t))
+					}
+				}
 			})
 		}
 	}()
 
 	bottomBar := container.NewHBox(
 		statusLabel,
+		weatherLabel,
 		layout.NewSpacer(),
 		lastSentLabel,
 		countdownLabel,
+		payloadBtn,
 		sendBtn,
 	)
 

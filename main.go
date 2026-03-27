@@ -85,5 +85,5 @@ func main() {
 	}()
 
 	// UI blocks on the main goroutine (required by Fyne / CoreBluetooth).
-	ui.Run(store, sender)
+	ui.Run(store, sender, fmi)
 }

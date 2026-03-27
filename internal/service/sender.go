@@ -80,3 +80,8 @@ func (s *Sender) NextSendAt() time.Time {
 	defer s.mu.RUnlock()
 	return s.nextSendAt
 }
+
+// LastPayload returns the pretty-printed JSON of the most recent send (empty if never sent).
+func (s *Sender) LastPayload() string {
+	return s.webhook.LastPayload()
+}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"ruuvi-listener/pkg/storage"
@@ -36,6 +37,9 @@ type WebhookService struct {
 	url     string
 	client  *http.Client
 	weather *FmiCollector // optional; nil disables weather in payload
+
+	mu          sync.RWMutex
+	lastPayload string // pretty-printed JSON of the last successfully marshalled send
 }
 
 // NewWebhookService creates a WebhookService for the given URL.
@@ -46,6 +50,13 @@ func NewWebhookService(url string, weather *FmiCollector) *WebhookService {
 		client:  &http.Client{Timeout: 10 * time.Second},
 		weather: weather,
 	}
+}
+
+// LastPayload returns the pretty-printed JSON of the most recent send (empty if never sent).
+func (w *WebhookService) LastPayload() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.lastPayload
 }
 
 // Send posts all tags (and optional weather) to the TRMNL webhook.
@@ -78,12 +89,16 @@ func (w *WebhookService) Send(tags []*storage.Tag) error {
 
 	payload := webhookPayload{MergeVariables: mv}
 
-	body, err := json.Marshal(payload)
+	pretty, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		return fmt.Errorf("webhook: marshal: %w", err)
 	}
 
-	resp, err := w.client.Post(w.url, "application/json", bytes.NewReader(body))
+	w.mu.Lock()
+	w.lastPayload = string(pretty)
+	w.mu.Unlock()
+
+	resp, err := w.client.Post(w.url, "application/json", bytes.NewReader(pretty))
 	if err != nil {
 		return fmt.Errorf("webhook: post: %w", err)
 	}

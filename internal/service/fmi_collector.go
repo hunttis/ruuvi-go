@@ -69,6 +69,13 @@ type FmiCollector struct {
 	location *time.Location
 }
 
+// LastFetchedAt returns the time the cache was last successfully populated (zero if never).
+func (f *FmiCollector) LastFetchedAt() time.Time {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.cacheAt
+}
+
 // NewFmiCollector creates a collector for the given place name (e.g. "Helsinki").
 func NewFmiCollector(place string) *FmiCollector {
 	loc, err := time.LoadLocation("Europe/Helsinki")
