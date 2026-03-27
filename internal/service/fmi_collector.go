@@ -156,18 +156,18 @@ func (f *FmiCollector) fetch() (*WeatherData, error) {
 	now := time.Now().UTC()
 	end := now.Add(fmiHorizon)
 
-	q := url.Values{}
-	q.Set("service", "WFS")
-	q.Set("version", "2.0.0")
-	q.Set("request", "getFeature")
-	q.Set("storedquery_id", "fmi::forecast::hirlam::surface::point::simple")
-	q.Set("place", f.place)
-	q.Set("parameters", "Temperature,FeelsLike,WeatherSymbol3,Precipitation1h")
-	q.Set("timestep", "60")
-	q.Set("starttime", now.Format(time.RFC3339))
-	q.Set("endtime", end.Format(time.RFC3339))
-
-	reqURL := fmiBaseURL + "?" + q.Encode()
+	// Build URL manually to avoid url.Values percent-encoding the colons in
+	// the storedquery_id (fmi::forecast::...) which the FMI server rejects.
+	reqURL := fmt.Sprintf(
+		"%s?service=WFS&version=2.0.0&request=getFeature"+
+			"&storedquery_id=fmi::forecast::hirlam::surface::point::simple"+
+			"&place=%s&parameters=Temperature,FeelsLike,WeatherSymbol3,Precipitation1h"+
+			"&timestep=60&starttime=%s&endtime=%s",
+		fmiBaseURL,
+		url.QueryEscape(f.place),
+		now.Format(time.RFC3339),
+		end.Format(time.RFC3339),
+	)
 	log.Printf("fmi: fetching %s", reqURL)
 
 	resp, err := f.client.Get(reqURL)
