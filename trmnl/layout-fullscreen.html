@@ -1,0 +1,73 @@
+<!--
+RuuviTRMNL Plugin Template - Full Screen Layout
+Optimised for full-screen (800×480px).
+-->
+<div class="layout layout--col layout--stretch-x gap--small">
+
+  <!-- Ruuvi sensor tags row -->
+  <div class="layout layout--row layout--stretch-x gap--medium">
+    {% for tag in ruuvi_tags %}
+    {% assign now = 'now' | date: '%s' %}
+    {% assign lastUpdate = tag.lastTemperatureUpdate | default: tag.lastUpdated | date: '%s' %}
+    {% assign minutesOld = now | minus: lastUpdate | divided_by: 60 %}
+    {% assign isOffline = false %}
+    {% assign isStale = false %}
+    {% if minutesOld > 60 %}{% assign isOffline = true %}
+    {% elsif minutesOld > 30 %}{% assign isStale = true %}{% endif %}
+    <div class="layout layout--col stretch-x gap--xsmall {% if isOffline or isStale %}background--muted{% endif %} padding--small rounded--small">
+      <!-- Location Name -->
+      <span class="title title--small text--center">
+        {{ tag.name | truncate: 14 }}{% if isOffline %} OFFLINE{% elsif isStale and tag.temperature %} ({{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}){% endif %}
+      </span>
+      <!-- Temperature -->
+      <span class="value value--xxlarge value--tnums text--center">
+        {% if tag.temperature %}{{ tag.temperature | round: 1 }}°{% else %}-°{% endif %}
+      </span>
+      <!-- Humidity -->
+      <span class="value value--large value--tnums text--center">
+        {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Divider -->
+  <div class="divider"></div>
+
+  <!-- Weather section -->
+  {% if weather_current.symbolText %}
+  <div class="layout layout--col gap--small padding--small rounded--small background--muted">
+    <!-- Current conditions header -->
+    <div class="layout layout--row gap--medium layout--stretch-x">
+      <span class="title title--xsmall">
+        Helsinki nyt
+      </span>
+      <span class="value value--medium value--tnums">
+        {{ weather_current.temperature | round: 0 }}°
+      </span>
+      <span class="label label--small">
+        {{ weather_current.symbolText }}
+      </span>
+      {% if weather_current.precipitation > 0 %}
+      <span class="label label--small">
+        {{ weather_current.precipitation }}mm/h
+      </span>
+      {% endif %}
+    </div>
+    <!-- Hourly forecast row -->
+    <div class="layout layout--row gap--medium layout--stretch-x">
+      {% for hour in weather_forecast %}
+      <div class="layout layout--col text--center gap--xsmall">
+        <span class="label label--xsmall">{{ hour.time }}</span>
+        <span class="value value--medium value--tnums">{{ hour.temperature | round: 0 }}°</span>
+        <span class="label label--xxsmall" style="white-space:nowrap;overflow:hidden;max-width:6rem;">{{ hour.symbolText }}</span>
+        {% if hour.precipitation > 0 %}
+        <span class="label label--xxsmall value--tnums">{{ hour.precipitation }}mm</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
