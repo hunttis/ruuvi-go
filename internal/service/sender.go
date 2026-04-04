@@ -200,6 +200,31 @@ func (s *Sender) RenderImage() error {
 	return s.imageService.Render(s.store.AllSelected())
 }
 
+// ForceWebhookSend sends the webhook payload for the current selected tags
+// immediately, regardless of the webhookEnabled flag.
+func (s *Sender) ForceWebhookSend() error {
+	tags := s.store.AllSelected()
+	err := s.webhook.Send(tags)
+	s.mu.Lock()
+	if err == nil {
+		s.lastSent = time.Now()
+		s.lastWebhookErr = nil
+	} else {
+		s.lastWebhookErr = err
+	}
+	s.mu.Unlock()
+	return err
+}
+
+// ForceImageSend renders and POSTs the weather image for the current selected
+// tags immediately, regardless of the imageEnabled flag.
+func (s *Sender) ForceImageSend() error {
+	if s.imageService == nil {
+		return nil
+	}
+	return s.imageService.Send(s.store.AllSelected())
+}
+
 // PreviewPayload builds the current webhook payload JSON from the selected tags
 // without sending it or updating LastPayload.
 func (s *Sender) PreviewPayload() (string, error) {

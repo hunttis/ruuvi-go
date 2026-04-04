@@ -132,20 +132,30 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 	})
 	sendImageToggle.SetChecked(true)
 
-	// ── Send button ────────────────────────────────────────────────────────────
+	// ── Force send buttons ─────────────────────────────────────────────────────
 
-	sendBtn := widget.NewButton("Send to TRMNL", func() {
-		if !sender.WebhookEnabled() && !sender.ImageEnabled() {
-			dialog.ShowInformation("Nothing to send", "Both 'Send data' and 'Send image' are disabled. Enable at least one.", w)
-			return
-		}
-		selected := store.AllSelected()
-		if len(selected) == 0 {
-			dialog.ShowInformation("Nothing to send", "No tags are checked. Select at least one tag to send.", w)
+	forceSendJSONBtn := widget.NewButton("Force Send", func() {
+		if len(store.AllSelected()) == 0 {
+			dialog.ShowInformation("Nothing to send", "No tags are checked.", w)
 			return
 		}
 		go func() {
-			err := sender.Send(selected)
+			err := sender.ForceWebhookSend()
+			fyne.Do(func() {
+				if err != nil {
+					dialog.ShowError(err, w)
+				}
+			})
+		}()
+	})
+
+	forceSendImageBtn := widget.NewButton("Force Send", func() {
+		if len(store.AllSelected()) == 0 {
+			dialog.ShowInformation("Nothing to send", "No tags are checked.", w)
+			return
+		}
+		go func() {
+			err := sender.ForceImageSend()
 			fyne.Do(func() {
 				if err != nil {
 					dialog.ShowError(err, w)
@@ -272,21 +282,29 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 	//
 	//  [tag list — fills all available space]
 	//  ─────────────────────────────────────────────────────────────────────────
-	//  Data row:  [FMI status] [sent] [countdown] [error]  ──  [Preview Payload] [Sent Payload] [☑ Send data]
+	//  FMI row:       [FMI] [FMI status]
 	//  ─────────────────────────────────────────────────────────────────────────
-	//  Image row: [image status] [error]                   ──  [Preview Image] [Sent Image] [☑ Send image]
+	//  JSON row:      [JSON] [sent] [error]  ──  [Preview Payload] [Sent Payload] [Force Send] [☑ Active]
 	//  ─────────────────────────────────────────────────────────────────────────
-	//  Bottom:    [Scanning…]                              ──  [Send to TRMNL]
+	//  Image row:     [Image] [image status] ──  [Preview Image] [Sent Image] [Force Send] [☑ Active]
+	//  ─────────────────────────────────────────────────────────────────────────
+	//  Next send row: [Next automatic send] [countdown]
+	//  ─────────────────────────────────────────────────────────────────────────
+	//  Bottom:        [Scanning…]
 
-	dataRow := container.NewHBox(
-		widget.NewLabel("JSON"),
+	fmiRow := container.NewHBox(
+		widget.NewLabel("FMI"),
 		weatherLabel,
+	)
+
+	jsonRow := container.NewHBox(
+		widget.NewLabel("JSON"),
 		lastSentLabel,
-		countdownLabel,
 		webhookErrLabel,
 		layout.NewSpacer(),
 		previewPayloadBtn,
 		sentPayloadBtn,
+		forceSendJSONBtn,
 		sendDataToggle,
 	)
 
@@ -296,20 +314,28 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 		layout.NewSpacer(),
 		previewImageBtn,
 		sentImageBtn,
+		forceSendImageBtn,
 		sendImageToggle,
+	)
+
+	nextSendRow := container.NewHBox(
+		widget.NewLabel("Next automatic send"),
+		countdownLabel,
 	)
 
 	bottomBar := container.NewHBox(
 		scanLabel,
-		layout.NewSpacer(),
-		sendBtn,
 	)
 
 	footer := container.NewVBox(
 		widget.NewSeparator(),
-		dataRow,
+		fmiRow,
+		widget.NewSeparator(),
+		jsonRow,
 		widget.NewSeparator(),
 		imageRow,
+		widget.NewSeparator(),
+		nextSendRow,
 		widget.NewSeparator(),
 		bottomBar,
 	)
