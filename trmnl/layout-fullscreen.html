@@ -51,7 +51,7 @@ Optimised for full-screen (800×480px).
   <!-- Current conditions -->
   <div class="layout layout--row gap--medium layout--center layout--middle">
     <span class="title title--large">Helsinki{% if weather_current.precipitation > 0 %} · {{ weather_current.precipitation }}mm/h{% endif %}</span>
-    <img class="image image--contain" src="https://trmnl.com/images/plugins/weather/{{ currentIcon }}.svg" style="width:80px;height:80px;">
+    <img class="image image--contain" src="https://trmnl.com/images/plugins/weather/{{ currentIcon }}.svg" style="width:auto;height:100%;align-self:stretch;">
     <span class="value value--xxlarge value--tnums">{{ weather_current.temperature | round: 0 }}°</span>
   </div>
 
