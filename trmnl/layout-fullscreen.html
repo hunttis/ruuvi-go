@@ -23,7 +23,7 @@ Optimised for full-screen (800×480px).
       </span>
       <!-- Humidity (+ last measurement time when sensor is offline >1h) -->
       <span class="value value--small value--tnums text--center">
-        {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %}{% if isOffline %} <span style="color:#999">{{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}</span>{% endif %}
+        {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %}{% if isOffline %} <span style="color:#bbb">{{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}</span>{% endif %}
       </span>
     </div>
     {% endfor %}
@@ -33,15 +33,17 @@ Optimised for full-screen (800×480px).
   <div class="divider"></div>
 
   <!-- Weather section -->
-  {% if weather_current.symbolText %}
-  <!-- Current conditions -->
+  {% if weather_current.symbolEmoji %}
+  <!-- Current conditions: emoji + temperature left, city + precip right -->
   <div class="layout layout--row gap--medium layout--stretch-x">
-    <span class="title title--xsmall">Helsinki</span>
-    <span class="value value--large value--tnums">{{ weather_current.temperature | round: 0 }}°</span>
-    <span class="label label--small">{{ weather_current.symbolText }}</span>
-    {% if weather_current.precipitation > 0 %}
-    <span class="label label--small">{{ weather_current.precipitation }}mm/h</span>
-    {% endif %}
+    <span class="value value--xxlarge">{{ weather_current.symbolEmoji }}</span>
+    <span class="value value--xxlarge value--tnums">{{ weather_current.temperature | round: 0 }}°</span>
+    <div class="layout layout--col gap--xsmall">
+      <span class="title title--small">Helsinki</span>
+      {% if weather_current.precipitation > 0 %}
+      <span class="label label--small">{{ weather_current.precipitation }}mm/h</span>
+      {% endif %}
+    </div>
   </div>
   <!-- Hourly forecast -->
   <div class="layout layout--row gap--medium layout--stretch-x">
@@ -49,7 +51,7 @@ Optimised for full-screen (800×480px).
     <div class="layout layout--col text--center gap--xsmall">
       <span class="label label--xsmall">{{ hour.time }}</span>
       <span class="value value--medium value--tnums">{{ hour.temperature | round: 0 }}°</span>
-      <span class="label label--xxsmall" style="white-space:nowrap;overflow:hidden;max-width:6rem;">{{ hour.symbolText }}</span>
+      <span class="value value--small">{{ hour.symbolEmoji }}</span>
       {% if hour.precipitation > 0 %}
       <span class="label label--xxsmall value--tnums">{{ hour.precipitation }}mm</span>
       {% endif %}

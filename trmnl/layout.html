@@ -30,7 +30,7 @@ so lg: sizes are kept compact to fit the ~240px available height.
       </span>
       <!-- Humidity (+ last measurement time when sensor is offline >1h) -->
       <span class="value value--xsmall sm:value--small md:value--medium value--tnums text--center">
-        {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %}{% if isOffline %} <span style="color:#999">{{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}</span>{% endif %}
+        {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %}{% if isOffline %} <span style="color:#bbb">{{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}</span>{% endif %}
       </span>
       <!-- Battery -->
       <span
@@ -43,20 +43,15 @@ so lg: sizes are kept compact to fit the ~240px available height.
   </div>
 
   <!-- Weather section -->
-  {% if weather_current.symbolText %}
+  {% if weather_current.symbolEmoji %}
   <div class="layout layout--col gap--xsmall padding--xsmall rounded--small background--muted">
-    <!-- Current conditions -->
+    <!-- Current conditions: emoji + temp + city + precip -->
     <div class="layout layout--row gap--small layout--stretch-x">
-      <span class="label label--xsmall sm:label--small">
-        Feels {{ weather_current.feelsLike | round: 0 }}°
-      </span>
-      <span class="label label--xsmall sm:label--small">
-        {{ weather_current.symbolText }}
-      </span>
+      <span class="value value--small sm:value--medium">{{ weather_current.symbolEmoji }}</span>
+      <span class="value value--small sm:value--medium value--tnums">{{ weather_current.temperature | round: 0 }}°</span>
+      <span class="label label--xsmall sm:label--small">Helsinki</span>
       {% if weather_current.precipitation > 0 %}
-      <span class="label label--xsmall sm:label--small">
-        {{ weather_current.precipitation }}mm/h
-      </span>
+      <span class="label label--xsmall sm:label--small">{{ weather_current.precipitation }}mm/h</span>
       {% endif %}
     </div>
     <!-- Hourly forecast -->
@@ -65,7 +60,7 @@ so lg: sizes are kept compact to fit the ~240px available height.
       <div class="layout layout--col text--center gap--xsmall">
         <span class="label label--xxxsmall sm:label--xxsmall">{{ hour.time }}</span>
         <span class="value value--xsmall sm:value--small value--tnums">{{ hour.temperature | round: 0 }}°</span>
-        <span class="label label--xxxsmall" style="white-space:nowrap;overflow:hidden;max-width:5rem;">{{ hour.symbolText }}</span>
+        <span class="label label--xxsmall sm:label--xsmall">{{ hour.symbolEmoji }}</span>
       </div>
       {% endfor %}
     </div>

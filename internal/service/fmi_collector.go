@@ -45,12 +45,35 @@ var weatherSymbols = map[int]string{
 	83: "Heavy sleet",
 }
 
+var weatherEmojis = map[int]string{
+	1:  "☀️",
+	2:  "⛅",
+	3:  "☁️",
+	21: "🌦️",
+	22: "🌧️",
+	23: "🌧️",
+	31: "🌦️",
+	32: "🌧️",
+	33: "🌧️",
+	51: "🌨️",
+	52: "❄️",
+	53: "❄️",
+	61: "⛈️",
+	71: "🌨️",
+	72: "🌨️",
+	73: "🌨️",
+	81: "🌨️",
+	82: "🌨️",
+	83: "🌨️",
+}
+
 // ForecastHour holds weather data for one forecast step.
 type ForecastHour struct {
 	Time          string  `json:"time"`          // HH:MM in Helsinki timezone
 	Temperature   float64 `json:"temperature"`   // °C
 	FeelsLike     float64 `json:"feelsLike"`     // °C
 	SymbolText    string  `json:"symbolText"`    // human-readable condition
+	SymbolEmoji   string  `json:"symbolEmoji"`   // emoji representation of condition
 	Precipitation float64 `json:"precipitation"` // mm/h
 }
 
@@ -317,12 +340,17 @@ func (f *FmiCollector) buildWeatherData(elements []rawWfsElement) (*WeatherData,
 		if !ok && sym != 0 {
 			text = fmt.Sprintf("(%d)", sym)
 		}
+		emoji := weatherEmojis[sym]
+		if emoji == "" {
+			emoji = "🌡️"
+		}
 		prec := math.Round(p.precipitation*10) / 10
 		return ForecastHour{
 			Time:          local.Format("15:04"),
 			Temperature:   p.temperature,
 			FeelsLike:     p.temperature, // HIRLAM doesn't provide FeelsLike
 			SymbolText:    text,
+			SymbolEmoji:   emoji,
 			Precipitation: prec,
 		}
 	}
