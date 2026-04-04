@@ -21,8 +21,9 @@ Optimised for full-screen (800×480px).
       <span class="value value--xlarge value--tnums text--center">
         {% if tag.temperature %}{{ tag.temperature | round: 1 }}°{% else %}-°{% endif %}
       </span>
+      <!-- Humidity (+ last measurement time when sensor is offline >1h) -->
       <span class="value value--small value--tnums text--center">
-        {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %} <span class="label label--xxsmall">{{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}</span>
+        {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %}{% if isOffline %} {{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}{% endif %}
       </span>
     </div>
     {% endfor %}
