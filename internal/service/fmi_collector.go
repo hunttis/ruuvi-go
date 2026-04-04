@@ -46,27 +46,28 @@ var weatherSymbols = map[int]string{
 }
 
 // weatherIcons maps FMI WeatherSymbol3 codes to TRMNL hosted SVG icon slugs.
-// Icons served from https://trmnl.com/images/plugins/weather/[slug].svg
+// Only 5 icons exist per layout dir: sunny, cloudy-gusts, showers, snow, windy.
+// Icons served from https://trmnl.com/images/plugins/weather/[layout]/[slug].svg
 var weatherIcons = map[int]string{
 	1:  "sunny",
-	2:  "cloudy",
-	3:  "cloudy",
-	21: "rain",
-	22: "rain",
-	23: "rain",
-	31: "rain",
-	32: "rain",
-	33: "rain",
+	2:  "cloudy-gusts",
+	3:  "cloudy-gusts",
+	21: "showers",
+	22: "showers",
+	23: "showers",
+	31: "showers",
+	32: "showers",
+	33: "showers",
 	51: "snow",
 	52: "snow",
 	53: "snow",
-	61: "thunderstorm",
-	71: "sleet",
-	72: "sleet",
-	73: "sleet",
-	81: "sleet",
-	82: "sleet",
-	83: "sleet",
+	61: "showers", // no thunder icon available
+	71: "snow",    // sleet → snow is closest
+	72: "snow",
+	73: "snow",
+	81: "snow",
+	82: "snow",
+	83: "snow",
 }
 
 // ForecastHour holds weather data for one forecast step.
@@ -344,7 +345,7 @@ func (f *FmiCollector) buildWeatherData(elements []rawWfsElement) (*WeatherData,
 		}
 		icon := weatherIcons[sym]
 		if icon == "" {
-			icon = "cloudy"
+			icon = "cloudy-gusts"
 		}
 		prec := math.Round(p.precipitation*10) / 10
 		return ForecastHour{
