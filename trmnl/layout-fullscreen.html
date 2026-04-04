@@ -16,13 +16,16 @@ Optimised for full-screen (800×480px).
     {% elsif minutesOld > 30 %}{% assign isStale = true %}{% endif %}
     <div class="layout layout--col stretch-x gap--xsmall {% if isOffline or isStale %}background--muted{% endif %} padding--small rounded--small">
       <span class="title title--xsmall text--center">
-        {{ tag.name | truncate: 14 }}{% if isOffline or isStale %} ({{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}){% endif %}
+        {{ tag.name | truncate: 14 }}
       </span>
       <span class="value value--xlarge value--tnums text--center">
         {% if tag.temperature %}{{ tag.temperature | round: 1 }}°{% else %}-°{% endif %}
       </span>
       <span class="value value--small value--tnums text--center">
         {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %}
+      </span>
+      <span class="label label--xxsmall text--center">
+        {{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}
       </span>
     </div>
     {% endfor %}

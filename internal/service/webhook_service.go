@@ -17,8 +17,8 @@ type tagEntry struct {
 	Name                      string  `json:"name"`
 	Temperature               float64 `json:"temperature"`
 	Humidity                  float64 `json:"humidity"`
-	LastUpdated               string  `json:"lastUpdated"`               // RFC3339 UTC — used by Liquid for age calc
-	LastTemperatureUpdate     string  `json:"lastTemperatureUpdate"`     // RFC3339 UTC — used by Liquid for age calc
+	LastUpdated               int64   `json:"lastUpdated"`               // Unix epoch seconds — used by Liquid for age calc
+	LastTemperatureUpdate     int64   `json:"lastTemperatureUpdate"`     // Unix epoch seconds — used by Liquid for age calc
 	LastUpdatedTime           string  `json:"lastUpdatedTime"`           // local HH:MM — used directly for display
 	LastTemperatureUpdateTime string  `json:"lastTemperatureUpdateTime"` // local HH:MM — used directly for display
 }
@@ -65,14 +65,14 @@ func (w *WebhookService) LastPayload() string {
 func (w *WebhookService) BuildPayload(tags []*storage.Tag) (string, error) {
 	entries := make([]tagEntry, 0, len(tags))
 	for _, t := range tags {
-		tsUTC := t.LastSeen.UTC().Format(time.RFC3339)
+		tsUnix := t.LastSeen.Unix()
 		tsLocal := t.LastSeen.Local().Format("15:04")
 		entries = append(entries, tagEntry{
 			Name:                      t.DisplayName(),
 			Temperature:               t.Temperature,
 			Humidity:                  t.Humidity,
-			LastUpdated:               tsUTC,
-			LastTemperatureUpdate:     tsUTC,
+			LastUpdated:               tsUnix,
+			LastTemperatureUpdate:     tsUnix,
 			LastUpdatedTime:           tsLocal,
 			LastTemperatureUpdateTime: tsLocal,
 		})
@@ -99,14 +99,14 @@ func (w *WebhookService) BuildPayload(tags []*storage.Tag) (string, error) {
 func (w *WebhookService) Send(tags []*storage.Tag) error {
 	entries := make([]tagEntry, 0, len(tags))
 	for _, t := range tags {
-		tsUTC := t.LastSeen.UTC().Format(time.RFC3339)
+		tsUnix := t.LastSeen.Unix()
 		tsLocal := t.LastSeen.Local().Format("15:04")
 		entries = append(entries, tagEntry{
 			Name:                      t.DisplayName(),
 			Temperature:               t.Temperature,
 			Humidity:                  t.Humidity,
-			LastUpdated:               tsUTC,
-			LastTemperatureUpdate:     tsUTC,
+			LastUpdated:               tsUnix,
+			LastTemperatureUpdate:     tsUnix,
 			LastUpdatedTime:           tsLocal,
 			LastTemperatureUpdateTime: tsLocal,
 		})

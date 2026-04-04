@@ -19,9 +19,7 @@ so lg: sizes are kept compact to fit the ~240px available height.
       <!-- Location Name -->
       <span
         class="title title--xxsmall sm:title--xsmall md:title--small text--center"
-        >{{ tag.name | truncate: 12 }}{% if isOffline or isStale %} ({{
-        tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}){%
-        endif %}</span
+        >{{ tag.name | truncate: 12 }}</span
       >
       <!-- Temperature -->
       <span
@@ -30,11 +28,14 @@ so lg: sizes are kept compact to fit the ~240px available height.
         {% if tag.temperature %}{{ tag.temperature | round: 1 }}°{% else %}-°{%
         endif %}
       </span>
-      <!-- Humidity -->
+      <!-- Humidity + measurement time -->
       <span
         class="value value--xsmall sm:value--small md:value--medium value--tnums text--center"
       >
         {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %}
+      </span>
+      <span class="label label--xxxsmall text--center">
+        {{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}
       </span>
       <!-- Battery -->
       <span
