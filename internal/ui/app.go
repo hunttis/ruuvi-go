@@ -122,12 +122,12 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 
 	// ── Toggles ────────────────────────────────────────────────────────────────
 
-	sendDataToggle := widget.NewCheck("Send data", func(v bool) {
+	sendDataToggle := widget.NewCheck("Active", func(v bool) {
 		sender.SetWebhookEnabled(v)
 	})
 	sendDataToggle.SetChecked(true)
 
-	sendImageToggle := widget.NewCheck("Send image", func(v bool) {
+	sendImageToggle := widget.NewCheck("Active", func(v bool) {
 		sender.SetImageEnabled(v)
 	})
 	sendImageToggle.SetChecked(true)
@@ -279,6 +279,7 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 	//  Bottom:    [Scanning…]                              ──  [Send to TRMNL]
 
 	dataRow := container.NewHBox(
+		widget.NewLabel("JSON"),
 		weatherLabel,
 		lastSentLabel,
 		countdownLabel,
@@ -290,6 +291,7 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 	)
 
 	imageRow := container.NewHBox(
+		widget.NewLabel("Image"),
 		imageStatusLabel,
 		layout.NewSpacer(),
 		previewImageBtn,
