@@ -51,13 +51,10 @@ so lg: sizes are kept compact to fit the ~240px available height.
 
   <div class="layout layout--col gap--xsmall padding--xsmall rounded--small background--muted">
     <!-- Current conditions -->
-    <div class="layout layout--row gap--small layout--stretch-x">
+    <div class="layout layout--row gap--small layout--stretch-x layout--middle">
+      <span class="title title--small sm:title--medium">Helsinki{% if weather_current.precipitation > 0 %} · {{ weather_current.precipitation }}mm/h{% endif %}</span>
       <img class="image image--contain" src="https://trmnl.com/images/plugins/weather/{{ currentIcon }}.svg" style="width:32px;height:32px;">
       <span class="value value--small sm:value--medium value--tnums">{{ weather_current.temperature | round: 0 }}°</span>
-      <span class="title title--xsmall sm:title--small">Helsinki</span>
-      {% if weather_current.precipitation > 0 %}
-      <span class="label label--xsmall sm:label--small">{{ weather_current.precipitation }}mm/h</span>
-      {% endif %}
     </div>
     <!-- Hourly forecast -->
     <div class="layout layout--row gap--small layout--stretch-x">
