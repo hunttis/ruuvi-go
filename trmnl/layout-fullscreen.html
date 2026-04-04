@@ -22,10 +22,7 @@ Optimised for full-screen (800×480px).
         {% if tag.temperature %}{{ tag.temperature | round: 1 }}°{% else %}-°{% endif %}
       </span>
       <span class="value value--small value--tnums text--center">
-        {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %}
-      </span>
-      <span class="label label--xxsmall text--center">
-        {{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}
+        {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %} <span class="label label--xxsmall">{{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}</span>
       </span>
     </div>
     {% endfor %}
