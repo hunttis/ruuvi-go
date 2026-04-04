@@ -34,27 +34,52 @@ Optimised for full-screen (800×480px).
 
   <!-- Weather section -->
   {% if weather_current.symbolText %}
+
+  {% comment %}
+    Map symbolText to TRMNL icon slug as fallback for older app builds.
+    Newer builds send symbolIcon directly; use that when available.
+  {% endcomment %}
+  {% assign weatherIcon = "cloudy" %}
+  {% if weather_current.symbolText == "Clear" %}{% assign weatherIcon = "sunny" %}
+  {% elsif weather_current.symbolText contains "hunder" %}{% assign weatherIcon = "thunderstorm" %}
+  {% elsif weather_current.symbolText contains "now" %}{% assign weatherIcon = "snow" %}
+  {% elsif weather_current.symbolText contains "leet" %}{% assign weatherIcon = "sleet" %}
+  {% elsif weather_current.symbolText contains "ain" or weather_current.symbolText contains "hower" %}{% assign weatherIcon = "rain" %}
+  {% endif %}
+  {% assign currentIcon = weather_current.symbolIcon | default: weatherIcon %}
+
   <!-- Current conditions -->
   <div class="layout layout--row gap--medium layout--stretch-x">
+    <img class="image image--contain" src="https://trmnl.com/images/plugins/weather/{{ currentIcon }}.svg" style="width:80px;height:80px;">
     <span class="value value--xxlarge value--tnums">{{ weather_current.temperature | round: 0 }}°</span>
     <div class="layout layout--col gap--xsmall">
       <span class="title title--small">{{ weather_current.symbolText }}</span>
       <span class="label label--small">Helsinki{% if weather_current.precipitation > 0 %} · {{ weather_current.precipitation }}mm/h{% endif %}</span>
     </div>
   </div>
+
   <!-- Hourly forecast -->
   <div class="layout layout--row gap--medium layout--stretch-x">
     {% for hour in weather_forecast %}
+    {% assign hourIcon = "cloudy" %}
+    {% if hour.symbolText == "Clear" %}{% assign hourIcon = "sunny" %}
+    {% elsif hour.symbolText contains "hunder" %}{% assign hourIcon = "thunderstorm" %}
+    {% elsif hour.symbolText contains "now" %}{% assign hourIcon = "snow" %}
+    {% elsif hour.symbolText contains "leet" %}{% assign hourIcon = "sleet" %}
+    {% elsif hour.symbolText contains "ain" or hour.symbolText contains "hower" %}{% assign hourIcon = "rain" %}
+    {% endif %}
+    {% assign forecastIcon = hour.symbolIcon | default: hourIcon %}
     <div class="layout layout--col text--center gap--xsmall">
       <span class="label label--xsmall">{{ hour.time }}</span>
       <span class="value value--medium value--tnums">{{ hour.temperature | round: 0 }}°</span>
-      <span class="label label--xxsmall" style="white-space:nowrap;overflow:hidden;max-width:6rem;">{{ hour.symbolText }}</span>
+      <img class="image image--contain" src="https://trmnl.com/images/plugins/weather/{{ forecastIcon }}.svg" style="width:36px;height:36px;">
       {% if hour.precipitation > 0 %}
       <span class="label label--xxsmall value--tnums">{{ hour.precipitation }}mm</span>
       {% endif %}
     </div>
     {% endfor %}
   </div>
+
   {% else %}
   <span class="label label--small">Säätietoja ei saatavilla</span>
   {% endif %}

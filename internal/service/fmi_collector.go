@@ -45,26 +45,28 @@ var weatherSymbols = map[int]string{
 	83: "Heavy sleet",
 }
 
-var weatherEmojis = map[int]string{
-	1:  "☀️",
-	2:  "⛅",
-	3:  "☁️",
-	21: "🌦️",
-	22: "🌧️",
-	23: "🌧️",
-	31: "🌦️",
-	32: "🌧️",
-	33: "🌧️",
-	51: "🌨️",
-	52: "❄️",
-	53: "❄️",
-	61: "⛈️",
-	71: "🌨️",
-	72: "🌨️",
-	73: "🌨️",
-	81: "🌨️",
-	82: "🌨️",
-	83: "🌨️",
+// weatherIcons maps FMI WeatherSymbol3 codes to TRMNL hosted SVG icon slugs.
+// Icons served from https://trmnl.com/images/plugins/weather/[slug].svg
+var weatherIcons = map[int]string{
+	1:  "sunny",
+	2:  "cloudy",
+	3:  "cloudy",
+	21: "rain",
+	22: "rain",
+	23: "rain",
+	31: "rain",
+	32: "rain",
+	33: "rain",
+	51: "snow",
+	52: "snow",
+	53: "snow",
+	61: "thunderstorm",
+	71: "sleet",
+	72: "sleet",
+	73: "sleet",
+	81: "sleet",
+	82: "sleet",
+	83: "sleet",
 }
 
 // ForecastHour holds weather data for one forecast step.
@@ -73,7 +75,7 @@ type ForecastHour struct {
 	Temperature   float64 `json:"temperature"`   // °C
 	FeelsLike     float64 `json:"feelsLike"`     // °C
 	SymbolText    string  `json:"symbolText"`    // human-readable condition
-	SymbolEmoji   string  `json:"symbolEmoji"`   // emoji representation of condition
+	SymbolIcon    string  `json:"symbolIcon"`    // TRMNL SVG icon slug
 	Precipitation float64 `json:"precipitation"` // mm/h
 }
 
@@ -340,9 +342,9 @@ func (f *FmiCollector) buildWeatherData(elements []rawWfsElement) (*WeatherData,
 		if !ok && sym != 0 {
 			text = fmt.Sprintf("(%d)", sym)
 		}
-		emoji := weatherEmojis[sym]
-		if emoji == "" {
-			emoji = "🌡️"
+		icon := weatherIcons[sym]
+		if icon == "" {
+			icon = "cloudy"
 		}
 		prec := math.Round(p.precipitation*10) / 10
 		return ForecastHour{
@@ -350,7 +352,7 @@ func (f *FmiCollector) buildWeatherData(elements []rawWfsElement) (*WeatherData,
 			Temperature:   p.temperature,
 			FeelsLike:     p.temperature, // HIRLAM doesn't provide FeelsLike
 			SymbolText:    text,
-			SymbolEmoji:   emoji,
+			SymbolIcon:    icon,
 			Precipitation: prec,
 		}
 	}

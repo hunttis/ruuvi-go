@@ -16,26 +16,17 @@ so lg: sizes are kept compact to fit the ~240px available height.
     <div
       class="layout layout--col stretch-x gap--xsmall {% if isOffline or isStale %}background--muted{% endif %} padding--xsmall sm:padding--small rounded--small"
     >
-      <!-- Location Name -->
-      <span
-        class="title title--xxsmall sm:title--xsmall md:title--small text--center"
+      <span class="title title--xxsmall sm:title--xsmall md:title--small text--center"
         >{{ tag.name | truncate: 12 }}</span
       >
-      <!-- Temperature -->
-      <span
-        class="value value--large sm:value--xlarge md:value--xxlarge value--tnums text--center"
-      >
-        {% if tag.temperature %}{{ tag.temperature | round: 1 }}°{% else %}-°{%
-        endif %}
+      <span class="value value--large sm:value--xlarge md:value--xxlarge value--tnums text--center">
+        {% if tag.temperature %}{{ tag.temperature | round: 1 }}°{% else %}-°{% endif %}
       </span>
       <!-- Humidity (+ last measurement time when sensor is offline >1h) -->
       <span class="value value--xsmall sm:value--small md:value--medium value--tnums text--center">
         {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %}{% if isOffline %} <span style="color:#bbb">{{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}</span>{% endif %}
       </span>
-      <!-- Battery -->
-      <span
-        class="label label--xxxsmall sm:label--xxsmall text--center"
-      >
+      <span class="label label--xxxsmall sm:label--xxsmall text--center">
         {% if tag.battery %}{{ tag.battery }}mV{% endif %}
       </span>
     </div>
@@ -44,9 +35,24 @@ so lg: sizes are kept compact to fit the ~240px available height.
 
   <!-- Weather section -->
   {% if weather_current.symbolText %}
+
+  {% comment %}
+    Map symbolText to TRMNL icon slug as fallback for older app builds.
+    Newer builds send symbolIcon directly; use that when available.
+  {% endcomment %}
+  {% assign weatherIcon = "cloudy" %}
+  {% if weather_current.symbolText == "Clear" %}{% assign weatherIcon = "sunny" %}
+  {% elsif weather_current.symbolText contains "hunder" %}{% assign weatherIcon = "thunderstorm" %}
+  {% elsif weather_current.symbolText contains "now" %}{% assign weatherIcon = "snow" %}
+  {% elsif weather_current.symbolText contains "leet" %}{% assign weatherIcon = "sleet" %}
+  {% elsif weather_current.symbolText contains "ain" or weather_current.symbolText contains "hower" %}{% assign weatherIcon = "rain" %}
+  {% endif %}
+  {% assign currentIcon = weather_current.symbolIcon | default: weatherIcon %}
+
   <div class="layout layout--col gap--xsmall padding--xsmall rounded--small background--muted">
     <!-- Current conditions -->
     <div class="layout layout--row gap--small layout--stretch-x">
+      <img class="image image--contain" src="https://trmnl.com/images/plugins/weather/{{ currentIcon }}.svg" style="width:32px;height:32px;">
       <span class="value value--small sm:value--medium value--tnums">{{ weather_current.temperature | round: 0 }}°</span>
       <span class="label label--xsmall sm:label--small">{{ weather_current.symbolText }}</span>
       <span class="label label--xsmall sm:label--small">Helsinki</span>
@@ -57,10 +63,18 @@ so lg: sizes are kept compact to fit the ~240px available height.
     <!-- Hourly forecast -->
     <div class="layout layout--row gap--small layout--stretch-x">
       {% for hour in weather_forecast %}
+      {% assign hourIcon = "cloudy" %}
+      {% if hour.symbolText == "Clear" %}{% assign hourIcon = "sunny" %}
+      {% elsif hour.symbolText contains "hunder" %}{% assign hourIcon = "thunderstorm" %}
+      {% elsif hour.symbolText contains "now" %}{% assign hourIcon = "snow" %}
+      {% elsif hour.symbolText contains "leet" %}{% assign hourIcon = "sleet" %}
+      {% elsif hour.symbolText contains "ain" or hour.symbolText contains "hower" %}{% assign hourIcon = "rain" %}
+      {% endif %}
+      {% assign forecastIcon = hour.symbolIcon | default: hourIcon %}
       <div class="layout layout--col text--center gap--xsmall">
         <span class="label label--xxxsmall sm:label--xxsmall">{{ hour.time }}</span>
         <span class="value value--xsmall sm:value--small value--tnums">{{ hour.temperature | round: 0 }}°</span>
-        <span class="label label--xxxsmall" style="white-space:nowrap;overflow:hidden;max-width:5rem;">{{ hour.symbolText }}</span>
+        <img class="image image--contain" src="https://trmnl.com/images/plugins/weather/{{ forecastIcon }}.svg" style="width:24px;height:24px;">
       </div>
       {% endfor %}
     </div>
