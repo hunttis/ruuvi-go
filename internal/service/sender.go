@@ -117,6 +117,14 @@ func (s *Sender) LastImageSentAt() time.Time {
 	return s.imageService.LastImageSentAt()
 }
 
+// ImageStatus returns a short human-readable status string for the image send.
+func (s *Sender) ImageStatus() string {
+	if s.imageService == nil {
+		return ""
+	}
+	return s.imageService.ImageStatus()
+}
+
 // RenderImage renders the weather image from the current selected tags and
 // caches it without sending. Returns nil if image sends are disabled.
 func (s *Sender) RenderImage() error {

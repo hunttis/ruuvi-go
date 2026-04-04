@@ -30,6 +30,7 @@ type WeatherImageService struct {
 	mu         sync.RWMutex
 	lastImage  []byte    // PNG bytes of the most recently rendered image
 	lastSentAt time.Time // zero if never sent
+	lastErr    error     // most recent send error; nil if last send succeeded
 }
 
 // NewWeatherImageService creates a WeatherImageService.
@@ -55,6 +56,22 @@ func (s *WeatherImageService) LastImageSentAt() time.Time {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.lastSentAt
+}
+
+// ImageStatus returns a short human-readable status string for the image send.
+func (s *WeatherImageService) ImageStatus() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.url == "" {
+		return "Image: no URL"
+	}
+	if s.lastErr != nil {
+		return "Image error: " + s.lastErr.Error()
+	}
+	if s.lastSentAt.IsZero() {
+		return "Image: not sent yet"
+	}
+	return "Image: " + timeAgoSimple(s.lastSentAt)
 }
 
 // Render renders the image and caches it without sending it.
@@ -97,11 +114,16 @@ func (s *WeatherImageService) Send(tags []*storage.Tag) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("weather image: server returned %d", resp.StatusCode)
+		err := fmt.Errorf("weather image: server returned %d", resp.StatusCode)
+		s.mu.Lock()
+		s.lastErr = err
+		s.mu.Unlock()
+		return err
 	}
 
 	s.mu.Lock()
 	s.lastSentAt = time.Now()
+	s.lastErr = nil
 	s.mu.Unlock()
 	return nil
 }
