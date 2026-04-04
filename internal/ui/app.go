@@ -21,10 +21,12 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 	a := fyneapp.New()
 	w := a.NewWindow("Ruuvi Listener — " + store.Path())
 
-	statusLabel := widget.NewLabel("Scanning…")
-	lastSentLabel := widget.NewLabel("")
+	// ── Status labels (updated by ticker) ─────────────────────────────────────
+	scanLabel      := widget.NewLabel("Scanning…")
+	weatherLabel   := widget.NewLabel("FMI: fetching…")
+	lastSentLabel  := widget.NewLabel("")
 	countdownLabel := widget.NewLabel("")
-	weatherLabel := widget.NewLabel("FMI: fetching…")
+	webhookErrLabel := widget.NewLabel("")
 	imageStatusLabel := widget.NewLabel(sender.ImageStatus())
 
 	// tags is the snapshot used by the list; always updated on the Fyne thread.
@@ -246,7 +248,7 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 		})
 	})
 
-	// Tick every 5 seconds to keep "last seen", "sent X ago", countdown, and weather label current.
+	// Tick every 5 seconds to refresh all dynamic labels.
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
@@ -257,6 +259,7 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 					lastSentLabel.SetText("Sent " + timeAgo(t))
 				}
 				countdownLabel.SetText(countdown(sender.NextSendAt()))
+				webhookErrLabel.SetText(sender.WebhookStatus())
 				if fmi != nil {
 					weatherLabel.SetText(fmi.Status())
 				}
@@ -265,42 +268,51 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 		}
 	}()
 
-	// ── Bottom layout: two rows separated by a divider ─────────────────────────
+	// ── Layout ─────────────────────────────────────────────────────────────────
 	//
-	//  Row 1 — status + toggles:
-	//    [Scanning…] [FMI: …] [Image: …]   [spacer]   [☑ Send data] [☑ Send image]
-	//
-	//  Row 2 — timing + actions:
-	//    [Sent Xm ago] [Next in Ym Zs]   [spacer]
-	//    [Preview Payload] [Preview Image] [Sent Payload] [Sent Image] [Send to TRMNL]
+	//  [tag list — fills all available space]
+	//  ─────────────────────────────────────────────────────────────────────────
+	//  Data row:  [FMI status] [sent] [countdown] [error]  ──  [Preview Payload] [Sent Payload] [☑ Send data]
+	//  ─────────────────────────────────────────────────────────────────────────
+	//  Image row: [image status] [error]                   ──  [Preview Image] [Sent Image] [☑ Send image]
+	//  ─────────────────────────────────────────────────────────────────────────
+	//  Bottom:    [Scanning…]                              ──  [Send to TRMNL]
 
-	statusRow := container.NewHBox(
-		statusLabel,
+	dataRow := container.NewHBox(
 		weatherLabel,
+		lastSentLabel,
+		countdownLabel,
+		webhookErrLabel,
+		layout.NewSpacer(),
+		previewPayloadBtn,
+		sentPayloadBtn,
+		sendDataToggle,
+	)
+
+	imageRow := container.NewHBox(
 		imageStatusLabel,
 		layout.NewSpacer(),
-		sendDataToggle,
+		previewImageBtn,
+		sentImageBtn,
 		sendImageToggle,
 	)
 
-	actionRow := container.NewHBox(
-		lastSentLabel,
-		countdownLabel,
+	bottomBar := container.NewHBox(
+		scanLabel,
 		layout.NewSpacer(),
-		previewPayloadBtn,
-		previewImageBtn,
-		sentPayloadBtn,
-		sentImageBtn,
 		sendBtn,
 	)
 
-	bottomBar := container.NewVBox(
-		statusRow,
+	footer := container.NewVBox(
 		widget.NewSeparator(),
-		actionRow,
+		dataRow,
+		widget.NewSeparator(),
+		imageRow,
+		widget.NewSeparator(),
+		bottomBar,
 	)
 
-	w.SetContent(container.NewBorder(nil, bottomBar, nil, nil, list))
+	w.SetContent(container.NewBorder(nil, footer, nil, nil, list))
 	w.Resize(fyne.NewSize(820, 420))
 	w.ShowAndRun()
 }

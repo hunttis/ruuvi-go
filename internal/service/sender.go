@@ -18,8 +18,9 @@ type Sender struct {
 	mu             sync.RWMutex
 	lastSent       time.Time
 	nextSendAt     time.Time
-	webhookEnabled bool // when false, webhook sends are skipped
-	imageEnabled   bool // when false, image sends are skipped
+	lastWebhookErr error // most recent webhook send error; nil on success
+	webhookEnabled bool  // when false, webhook sends are skipped
+	imageEnabled   bool  // when false, image sends are skipped
 }
 
 // NewSender creates a Sender. Pass a non-nil imageService to also send a
@@ -83,9 +84,13 @@ func (s *Sender) Start() {
 				if wEnabled {
 					if err := s.webhook.Send(tags); err != nil {
 						log.Printf("auto-send error: %v", err)
+						s.mu.Lock()
+						s.lastWebhookErr = err
+						s.mu.Unlock()
 					} else {
 						s.mu.Lock()
 						s.lastSent = time.Now()
+						s.lastWebhookErr = nil
 						s.mu.Unlock()
 					}
 				}
@@ -113,11 +118,14 @@ func (s *Sender) Send(tags []*storage.Tag) error {
 	var err error
 	if wEnabled {
 		err = s.webhook.Send(tags)
+		s.mu.Lock()
 		if err == nil {
-			s.mu.Lock()
 			s.lastSent = time.Now()
-			s.mu.Unlock()
+			s.lastWebhookErr = nil
+		} else {
+			s.lastWebhookErr = err
 		}
+		s.mu.Unlock()
 	}
 	if iEnabled && s.imageService != nil {
 		if imgErr := s.imageService.Send(tags); imgErr != nil {
@@ -162,6 +170,17 @@ func (s *Sender) LastImageSentAt() time.Time {
 		return time.Time{}
 	}
 	return s.imageService.LastImageSentAt()
+}
+
+// WebhookStatus returns a non-empty error string if the most recent webhook
+// send failed, or an empty string if it succeeded or has never been attempted.
+func (s *Sender) WebhookStatus() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.lastWebhookErr != nil {
+		return "Error: " + s.lastWebhookErr.Error()
+	}
+	return ""
 }
 
 // ImageStatus returns a short human-readable status string for the image send.
