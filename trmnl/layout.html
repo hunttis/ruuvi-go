@@ -30,7 +30,7 @@ so lg: sizes are kept compact to fit the ~240px available height.
       </span>
       <!-- Humidity (+ last measurement time when sensor is offline >1h) -->
       <span class="value value--xsmall sm:value--small md:value--medium value--tnums text--center">
-        {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %}{% if isOffline %} {{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}{% endif %}
+        {% if tag.humidity %}{{ tag.humidity | round: 0 }}%{% else %}-%{% endif %}{% if isOffline %} <span style="color:#999">{{ tag.lastTemperatureUpdateTime | default: tag.lastUpdatedTime }}</span>{% endif %}
       </span>
       <!-- Battery -->
       <span
