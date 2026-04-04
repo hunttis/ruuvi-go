@@ -45,29 +45,28 @@ var weatherSymbols = map[int]string{
 	83: "Heavy sleet",
 }
 
-// weatherIcons maps FMI WeatherSymbol3 codes to TRMNL hosted SVG icon slugs.
-// Only 5 icons exist per layout dir: sunny, cloudy-gusts, showers, snow, windy.
-// Icons served from https://trmnl.com/images/plugins/weather/[layout]/[slug].svg
+// weatherIcons maps FMI WeatherSymbol3 codes to TRMNL wi-* SVG icon slugs.
+// Icons served from https://trmnl.com/images/plugins/weather/[slug].svg
 var weatherIcons = map[int]string{
-	1:  "sunny",
-	2:  "cloudy-gusts",
-	3:  "cloudy-gusts",
-	21: "showers",
-	22: "showers",
-	23: "showers",
-	31: "showers",
-	32: "showers",
-	33: "showers",
-	51: "snow",
-	52: "snow",
-	53: "snow",
-	61: "showers", // no thunder icon available
-	71: "snow",    // sleet → snow is closest
-	72: "snow",
-	73: "snow",
-	81: "snow",
-	82: "snow",
-	83: "snow",
+	1:  "wi-day-sunny",
+	2:  "wi-day-cloudy",
+	3:  "wi-cloudy",
+	21: "wi-day-showers",
+	22: "wi-showers",
+	23: "wi-showers",
+	31: "wi-sprinkle",
+	32: "wi-rain",
+	33: "wi-rain",
+	51: "wi-day-snow",
+	52: "wi-snow",
+	53: "wi-snow",
+	61: "wi-thunderstorm",
+	71: "wi-day-sleet",
+	72: "wi-sleet",
+	73: "wi-sleet",
+	81: "wi-day-sleet",
+	82: "wi-sleet",
+	83: "wi-sleet",
 }
 
 // ForecastHour holds weather data for one forecast step.

@@ -40,18 +40,19 @@ so lg: sizes are kept compact to fit the ~240px available height.
     Map symbolText to TRMNL icon slug as fallback for older app builds.
     Newer builds send symbolIcon directly; use that when available.
   {% endcomment %}
-  {% assign weatherIcon = "cloudy-gusts" %}
-  {% if weather_current.symbolText == "Clear" %}{% assign weatherIcon = "sunny" %}
-  {% elsif weather_current.symbolText contains "now" %}{% assign weatherIcon = "snow" %}
-  {% elsif weather_current.symbolText contains "leet" %}{% assign weatherIcon = "snow" %}
-  {% elsif weather_current.symbolText contains "ain" or weather_current.symbolText contains "hower" or weather_current.symbolText contains "hunder" %}{% assign weatherIcon = "showers" %}
+  {% assign weatherIcon = "wi-cloudy" %}
+  {% if weather_current.symbolText == "Clear" %}{% assign weatherIcon = "wi-day-sunny" %}
+  {% elsif weather_current.symbolText contains "now" %}{% assign weatherIcon = "wi-snow" %}
+  {% elsif weather_current.symbolText contains "leet" %}{% assign weatherIcon = "wi-sleet" %}
+  {% elsif weather_current.symbolText contains "hunder" %}{% assign weatherIcon = "wi-thunderstorm" %}
+  {% elsif weather_current.symbolText contains "ain" or weather_current.symbolText contains "hower" %}{% assign weatherIcon = "wi-showers" %}
   {% endif %}
   {% assign currentIcon = weather_current.symbolIcon | default: weatherIcon %}
 
   <div class="layout layout--col gap--xsmall padding--xsmall rounded--small background--muted">
     <!-- Current conditions -->
     <div class="layout layout--row gap--small layout--stretch-x">
-      <img class="image image--contain" src="https://trmnl.com/images/plugins/weather/half_vertical/{{ currentIcon }}.svg" style="width:32px;height:32px;">
+      <img class="image image--contain" src="https://trmnl.com/images/plugins/weather/{{ currentIcon }}.svg" style="width:32px;height:32px;">
       <span class="value value--small sm:value--medium value--tnums">{{ weather_current.temperature | round: 0 }}°</span>
       <span class="label label--xsmall sm:label--small">{{ weather_current.symbolText }}</span>
       <span class="label label--xsmall sm:label--small">Helsinki</span>
@@ -62,17 +63,18 @@ so lg: sizes are kept compact to fit the ~240px available height.
     <!-- Hourly forecast -->
     <div class="layout layout--row gap--small layout--stretch-x">
       {% for hour in weather_forecast %}
-      {% assign hourIcon = "cloudy-gusts" %}
-      {% if hour.symbolText == "Clear" %}{% assign hourIcon = "sunny" %}
-      {% elsif hour.symbolText contains "now" %}{% assign hourIcon = "snow" %}
-      {% elsif hour.symbolText contains "leet" %}{% assign hourIcon = "snow" %}
-      {% elsif hour.symbolText contains "ain" or hour.symbolText contains "hower" or hour.symbolText contains "hunder" %}{% assign hourIcon = "showers" %}
+      {% assign hourIcon = "wi-cloudy" %}
+      {% if hour.symbolText == "Clear" %}{% assign hourIcon = "wi-day-sunny" %}
+      {% elsif hour.symbolText contains "now" %}{% assign hourIcon = "wi-snow" %}
+      {% elsif hour.symbolText contains "leet" %}{% assign hourIcon = "wi-sleet" %}
+      {% elsif hour.symbolText contains "hunder" %}{% assign hourIcon = "wi-thunderstorm" %}
+      {% elsif hour.symbolText contains "ain" or hour.symbolText contains "hower" %}{% assign hourIcon = "wi-showers" %}
       {% endif %}
       {% assign forecastIcon = hour.symbolIcon | default: hourIcon %}
       <div class="layout layout--col text--center gap--xsmall">
         <span class="label label--xxxsmall sm:label--xxsmall">{{ hour.time }}</span>
         <span class="value value--xsmall sm:value--small value--tnums">{{ hour.temperature | round: 0 }}°</span>
-        <img class="image image--contain" src="https://trmnl.com/images/plugins/weather/half_vertical/{{ forecastIcon }}.svg" style="width:24px;height:24px;">
+        <img class="image image--contain" src="https://trmnl.com/images/plugins/weather/{{ forecastIcon }}.svg" style="width:24px;height:24px;">
       </div>
       {% endfor %}
     </div>
