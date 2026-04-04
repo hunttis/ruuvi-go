@@ -27,10 +27,11 @@ type WeatherImageService struct {
 	templatePath string
 	client       *http.Client
 
-	mu         sync.RWMutex
-	lastImage  []byte    // PNG bytes of the most recently rendered image
-	lastSentAt time.Time // zero if never sent
-	lastErr    error     // most recent send error; nil if last send succeeded
+	mu            sync.RWMutex
+	lastImage     []byte    // PNG bytes of the most recently rendered image (preview or sent)
+	lastSentImage []byte    // PNG bytes of the most recently POSTed image only
+	lastSentAt    time.Time // zero if never sent
+	lastErr       error     // most recent send error; nil if last send succeeded
 }
 
 // NewWeatherImageService creates a WeatherImageService.
@@ -42,12 +43,20 @@ func NewWeatherImageService(webhookURL, templatePath string) *WeatherImageServic
 	}
 }
 
-// LastImage returns the PNG bytes of the most recently rendered image, or nil
-// if no image has been rendered yet.
+// LastImage returns the PNG bytes of the most recently rendered image (preview
+// or sent), or nil if no image has been rendered yet.
 func (s *WeatherImageService) LastImage() []byte {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.lastImage
+}
+
+// LastSentImage returns the PNG bytes of the most recently successfully POSTed
+// image, or nil if no image has been sent yet.
+func (s *WeatherImageService) LastSentImage() []byte {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.lastSentImage
 }
 
 // LastImageSentAt returns the time the image was last successfully POSTed to
@@ -122,6 +131,7 @@ func (s *WeatherImageService) Send(tags []*storage.Tag) error {
 	}
 
 	s.mu.Lock()
+	s.lastSentImage = pngBytes
 	s.lastSentAt = time.Now()
 	s.lastErr = nil
 	s.mu.Unlock()

@@ -118,7 +118,25 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 		)
 	}
 
+	// ── Toggles ────────────────────────────────────────────────────────────────
+
+	sendDataToggle := widget.NewCheck("Send data", func(v bool) {
+		sender.SetWebhookEnabled(v)
+	})
+	sendDataToggle.SetChecked(true)
+
+	sendImageToggle := widget.NewCheck("Send image", func(v bool) {
+		sender.SetImageEnabled(v)
+	})
+	sendImageToggle.SetChecked(true)
+
+	// ── Send button ────────────────────────────────────────────────────────────
+
 	sendBtn := widget.NewButton("Send to TRMNL", func() {
+		if !sender.WebhookEnabled() && !sender.ImageEnabled() {
+			dialog.ShowInformation("Nothing to send", "Both 'Send data' and 'Send image' are disabled. Enable at least one.", w)
+			return
+		}
 		selected := store.AllSelected()
 		if len(selected) == 0 {
 			dialog.ShowInformation("Nothing to send", "No tags are checked. Select at least one tag to send.", w)
@@ -134,39 +152,55 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 		}()
 	})
 
-	imageBtn := widget.NewButton("Last Image", func() {
+	// ── Preview buttons (no send) ──────────────────────────────────────────────
+
+	previewPayloadBtn := widget.NewButton("Preview Payload", func() {
+		payload, err := sender.PreviewPayload()
+		if err != nil {
+			dialog.ShowError(err, w)
+			return
+		}
+		if payload == "" {
+			dialog.ShowInformation("Preview Payload", "No tags selected.", w)
+			return
+		}
+		entry := widget.NewMultiLineEntry()
+		entry.SetText(payload)
+		entry.Wrapping = fyne.TextWrapOff
+
+		pw := a.NewWindow("Preview Payload")
+		pw.SetContent(container.NewScroll(entry))
+		pw.Resize(fyne.NewSize(700, 500))
+		pw.Show()
+	})
+
+	previewImageBtn := widget.NewButton("Preview Image", func() {
 		if err := sender.RenderImage(); err != nil {
 			dialog.ShowError(err, w)
 			return
 		}
 		imgBytes := sender.LastImage()
 		if len(imgBytes) == 0 {
-			dialog.ShowInformation("Last Image", "Weather image is not configured.", w)
+			dialog.ShowInformation("Preview Image", "Weather image template is not available.", w)
 			return
 		}
 
-		sentAt := sender.LastImageSentAt()
-		var title string
-		if sentAt.IsZero() {
-			title = "Weather Image Preview (not sent yet)"
-		} else {
-			title = "Weather Image — sent " + timeAgo(sentAt)
-		}
-
-		resource := fyne.NewStaticResource("last_weather.png", imgBytes)
+		resource := fyne.NewStaticResource("preview_weather.png", imgBytes)
 		img := canvas.NewImageFromResource(resource)
 		img.FillMode = canvas.ImageFillContain
 
-		iw := a.NewWindow(title)
+		iw := a.NewWindow("Preview Image")
 		iw.SetContent(img)
 		iw.Resize(fyne.NewSize(800, 480))
 		iw.Show()
 	})
 
-	payloadBtn := widget.NewButton("Last Payload", func() {
+	// ── "Last sent" buttons ────────────────────────────────────────────────────
+
+	sentPayloadBtn := widget.NewButton("Sent Payload", func() {
 		payload := sender.LastPayload()
 		if payload == "" {
-			dialog.ShowInformation("Last Payload", "Nothing has been sent yet.", w)
+			dialog.ShowInformation("Sent Payload", "Nothing has been sent yet.", w)
 			return
 		}
 		entry := widget.NewMultiLineEntry()
@@ -177,6 +211,31 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 		pw.SetContent(container.NewScroll(entry))
 		pw.Resize(fyne.NewSize(700, 500))
 		pw.Show()
+	})
+
+	sentImageBtn := widget.NewButton("Sent Image", func() {
+		imgBytes := sender.LastSentImage()
+		if len(imgBytes) == 0 {
+			dialog.ShowInformation("Sent Image", "No weather image has been sent yet.", w)
+			return
+		}
+
+		sentAt := sender.LastImageSentAt()
+		var title string
+		if sentAt.IsZero() {
+			title = "Last Sent Image"
+		} else {
+			title = "Last Sent Image — " + timeAgo(sentAt)
+		}
+
+		resource := fyne.NewStaticResource("sent_weather.png", imgBytes)
+		img := canvas.NewImageFromResource(resource)
+		img.FillMode = canvas.ImageFillContain
+
+		iw := a.NewWindow(title)
+		iw.SetContent(img)
+		iw.Resize(fyne.NewSize(800, 480))
+		iw.Show()
 	})
 
 	// Wire store updates → list refresh on the Fyne thread.
@@ -206,20 +265,43 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 		}
 	}()
 
-	bottomBar := container.NewHBox(
+	// ── Bottom layout: two rows separated by a divider ─────────────────────────
+	//
+	//  Row 1 — status + toggles:
+	//    [Scanning…] [FMI: …] [Image: …]   [spacer]   [☑ Send data] [☑ Send image]
+	//
+	//  Row 2 — timing + actions:
+	//    [Sent Xm ago] [Next in Ym Zs]   [spacer]
+	//    [Preview Payload] [Preview Image] [Sent Payload] [Sent Image] [Send to TRMNL]
+
+	statusRow := container.NewHBox(
 		statusLabel,
 		weatherLabel,
 		imageStatusLabel,
 		layout.NewSpacer(),
+		sendDataToggle,
+		sendImageToggle,
+	)
+
+	actionRow := container.NewHBox(
 		lastSentLabel,
 		countdownLabel,
-		imageBtn,
-		payloadBtn,
+		layout.NewSpacer(),
+		previewPayloadBtn,
+		previewImageBtn,
+		sentPayloadBtn,
+		sentImageBtn,
 		sendBtn,
 	)
 
+	bottomBar := container.NewVBox(
+		statusRow,
+		widget.NewSeparator(),
+		actionRow,
+	)
+
 	w.SetContent(container.NewBorder(nil, bottomBar, nil, nil, list))
-	w.Resize(fyne.NewSize(700, 380))
+	w.Resize(fyne.NewSize(820, 420))
 	w.ShowAndRun()
 }
 

@@ -15,20 +15,52 @@ type Sender struct {
 	store        *storage.Store
 	interval     time.Duration
 
-	mu         sync.RWMutex
-	lastSent   time.Time
-	nextSendAt time.Time
+	mu             sync.RWMutex
+	lastSent       time.Time
+	nextSendAt     time.Time
+	webhookEnabled bool // when false, webhook sends are skipped
+	imageEnabled   bool // when false, image sends are skipped
 }
 
 // NewSender creates a Sender. Pass a non-nil imageService to also send a
 // rendered PNG image on each send. Call Start to begin the auto-send ticker.
 func NewSender(webhook *WebhookService, imageService *WeatherImageService, store *storage.Store, interval time.Duration) *Sender {
 	return &Sender{
-		webhook:      webhook,
-		imageService: imageService,
-		store:        store,
-		interval:     interval,
+		webhook:        webhook,
+		imageService:   imageService,
+		store:          store,
+		interval:       interval,
+		webhookEnabled: true,
+		imageEnabled:   true,
 	}
+}
+
+// SetWebhookEnabled enables or disables webhook (weather data) sends.
+func (s *Sender) SetWebhookEnabled(v bool) {
+	s.mu.Lock()
+	s.webhookEnabled = v
+	s.mu.Unlock()
+}
+
+// SetImageEnabled enables or disables weather image sends.
+func (s *Sender) SetImageEnabled(v bool) {
+	s.mu.Lock()
+	s.imageEnabled = v
+	s.mu.Unlock()
+}
+
+// WebhookEnabled reports whether webhook sends are currently enabled.
+func (s *Sender) WebhookEnabled() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.webhookEnabled
+}
+
+// ImageEnabled reports whether image sends are currently enabled.
+func (s *Sender) ImageEnabled() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.imageEnabled
 }
 
 // Start begins the auto-send ticker in a background goroutine.
@@ -43,14 +75,21 @@ func (s *Sender) Start() {
 		for range t.C {
 			tags := s.store.AllSelected()
 			if len(tags) > 0 {
-				if err := s.webhook.Send(tags); err != nil {
-					log.Printf("auto-send error: %v", err)
-				} else {
-					s.mu.Lock()
-					s.lastSent = time.Now()
-					s.mu.Unlock()
+				s.mu.RLock()
+				wEnabled := s.webhookEnabled
+				iEnabled := s.imageEnabled
+				s.mu.RUnlock()
+
+				if wEnabled {
+					if err := s.webhook.Send(tags); err != nil {
+						log.Printf("auto-send error: %v", err)
+					} else {
+						s.mu.Lock()
+						s.lastSent = time.Now()
+						s.mu.Unlock()
+					}
 				}
-				if s.imageService != nil {
+				if iEnabled && s.imageService != nil {
 					if err := s.imageService.Send(tags); err != nil {
 						log.Printf("auto image-send error: %v", err)
 					}
@@ -63,16 +102,24 @@ func (s *Sender) Start() {
 	}()
 }
 
-// Send dispatches tags to the webhook immediately and records the send time on
-// success. Used by the manual send button in the UI.
+// Send dispatches tags to the enabled services immediately and records the
+// send time on success. Used by the manual send button in the UI.
 func (s *Sender) Send(tags []*storage.Tag) error {
-	err := s.webhook.Send(tags)
-	if err == nil {
-		s.mu.Lock()
-		s.lastSent = time.Now()
-		s.mu.Unlock()
+	s.mu.RLock()
+	wEnabled := s.webhookEnabled
+	iEnabled := s.imageEnabled
+	s.mu.RUnlock()
+
+	var err error
+	if wEnabled {
+		err = s.webhook.Send(tags)
+		if err == nil {
+			s.mu.Lock()
+			s.lastSent = time.Now()
+			s.mu.Unlock()
+		}
 	}
-	if s.imageService != nil {
+	if iEnabled && s.imageService != nil {
 		if imgErr := s.imageService.Send(tags); imgErr != nil {
 			log.Printf("image send: %v", imgErr)
 		}
@@ -132,4 +179,19 @@ func (s *Sender) RenderImage() error {
 		return nil
 	}
 	return s.imageService.Render(s.store.AllSelected())
+}
+
+// PreviewPayload builds the current webhook payload JSON from the selected tags
+// without sending it or updating LastPayload.
+func (s *Sender) PreviewPayload() (string, error) {
+	return s.webhook.BuildPayload(s.store.AllSelected())
+}
+
+// LastSentImage returns the PNG bytes of the most recently successfully POSTed
+// weather image, or nil if no image has been sent or image sends are disabled.
+func (s *Sender) LastSentImage() []byte {
+	if s.imageService == nil {
+		return nil
+	}
+	return s.imageService.LastSentImage()
 }

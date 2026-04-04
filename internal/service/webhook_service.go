@@ -60,6 +60,41 @@ func (w *WebhookService) LastPayload() string {
 	return w.lastPayload
 }
 
+// BuildPayload constructs the full JSON payload for the given tags (including
+// weather data if available) without POSTing it or updating LastPayload.
+func (w *WebhookService) BuildPayload(tags []*storage.Tag) (string, error) {
+	entries := make([]tagEntry, 0, len(tags))
+	for _, t := range tags {
+		tsUTC := t.LastSeen.UTC().Format(time.RFC3339)
+		tsLocal := t.LastSeen.Local().Format("15:04")
+		entries = append(entries, tagEntry{
+			Name:                      t.DisplayName(),
+			Temperature:               t.Temperature,
+			Humidity:                  t.Humidity,
+			LastUpdated:               tsUTC,
+			LastTemperatureUpdate:     tsUTC,
+			LastUpdatedTime:           tsLocal,
+			LastTemperatureUpdateTime: tsLocal,
+		})
+	}
+
+	mv := mergeVariables{RuuviTags: entries}
+
+	if w.weather != nil {
+		wd, err := w.weather.Get()
+		if err == nil {
+			mv.WeatherCurrent = &wd.Current
+			mv.WeatherForecast = wd.Forecast
+		}
+	}
+
+	pretty, err := json.MarshalIndent(webhookPayload{MergeVariables: mv}, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("webhook: marshal: %w", err)
+	}
+	return string(pretty), nil
+}
+
 // Send posts all tags (and optional weather) to the TRMNL webhook.
 func (w *WebhookService) Send(tags []*storage.Tag) error {
 	entries := make([]tagEntry, 0, len(tags))
