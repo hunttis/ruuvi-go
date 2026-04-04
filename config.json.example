@@ -1,5 +1,6 @@
 {
   "webhook_url": "https://trmnl.com/api/custom_plugins/YOUR_PLUGIN_ID_HERE",
+  "weather_image_url": "",
   "tags_file": "tags.json",
   "send_interval": "10m"
 }

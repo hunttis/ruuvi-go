@@ -10,21 +10,24 @@ import (
 
 // Sender wraps WebhookService with auto-send scheduling and send-state tracking.
 type Sender struct {
-	webhook  *WebhookService
-	store    *storage.Store
-	interval time.Duration
+	webhook      *WebhookService
+	imageService *WeatherImageService // optional; nil disables image sends
+	store        *storage.Store
+	interval     time.Duration
 
 	mu         sync.RWMutex
 	lastSent   time.Time
 	nextSendAt time.Time
 }
 
-// NewSender creates a Sender. Call Start to begin the auto-send ticker.
-func NewSender(webhook *WebhookService, store *storage.Store, interval time.Duration) *Sender {
+// NewSender creates a Sender. Pass a non-nil imageService to also send a
+// rendered PNG image on each send. Call Start to begin the auto-send ticker.
+func NewSender(webhook *WebhookService, imageService *WeatherImageService, store *storage.Store, interval time.Duration) *Sender {
 	return &Sender{
-		webhook:  webhook,
-		store:    store,
-		interval: interval,
+		webhook:      webhook,
+		imageService: imageService,
+		store:        store,
+		interval:     interval,
 	}
 }
 
@@ -47,6 +50,11 @@ func (s *Sender) Start() {
 					s.lastSent = time.Now()
 					s.mu.Unlock()
 				}
+				if s.imageService != nil {
+					if err := s.imageService.Send(tags); err != nil {
+						log.Printf("auto image-send error: %v", err)
+					}
+				}
 			}
 			s.mu.Lock()
 			s.nextSendAt = time.Now().Add(s.interval)
@@ -63,6 +71,11 @@ func (s *Sender) Send(tags []*storage.Tag) error {
 		s.mu.Lock()
 		s.lastSent = time.Now()
 		s.mu.Unlock()
+	}
+	if s.imageService != nil {
+		if imgErr := s.imageService.Send(tags); imgErr != nil {
+			log.Printf("image send: %v", imgErr)
+		}
 	}
 	return err
 }
@@ -84,4 +97,31 @@ func (s *Sender) NextSendAt() time.Time {
 // LastPayload returns the pretty-printed JSON of the most recent send (empty if never sent).
 func (s *Sender) LastPayload() string {
 	return s.webhook.LastPayload()
+}
+
+// LastImage returns the PNG bytes of the most recently rendered weather image,
+// or nil if no image has been rendered or image sends are disabled.
+func (s *Sender) LastImage() []byte {
+	if s.imageService == nil {
+		return nil
+	}
+	return s.imageService.LastImage()
+}
+
+// LastImageSentAt returns the time the weather image was last successfully
+// POSTed to the webhook, or the zero time if never sent or disabled.
+func (s *Sender) LastImageSentAt() time.Time {
+	if s.imageService == nil {
+		return time.Time{}
+	}
+	return s.imageService.LastImageSentAt()
+}
+
+// RenderImage renders the weather image from the current selected tags and
+// caches it without sending. Returns nil if image sends are disabled.
+func (s *Sender) RenderImage() error {
+	if s.imageService == nil {
+		return nil
+	}
+	return s.imageService.Render(s.store.AllSelected())
 }

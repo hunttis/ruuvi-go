@@ -6,6 +6,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	fyneapp "fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
@@ -132,6 +133,35 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 		}()
 	})
 
+	imageBtn := widget.NewButton("Last Image", func() {
+		if err := sender.RenderImage(); err != nil {
+			dialog.ShowError(err, w)
+			return
+		}
+		imgBytes := sender.LastImage()
+		if len(imgBytes) == 0 {
+			dialog.ShowInformation("Last Image", "Weather image is not configured.", w)
+			return
+		}
+
+		sentAt := sender.LastImageSentAt()
+		var title string
+		if sentAt.IsZero() {
+			title = "Weather Image Preview (not sent yet)"
+		} else {
+			title = "Weather Image — sent " + timeAgo(sentAt)
+		}
+
+		resource := fyne.NewStaticResource("last_weather.png", imgBytes)
+		img := canvas.NewImageFromResource(resource)
+		img.FillMode = canvas.ImageFillContain
+
+		iw := a.NewWindow(title)
+		iw.SetContent(img)
+		iw.Resize(fyne.NewSize(800, 480))
+		iw.Show()
+	})
+
 	payloadBtn := widget.NewButton("Last Payload", func() {
 		payload := sender.LastPayload()
 		if payload == "" {
@@ -180,6 +210,7 @@ func Run(store *storage.Store, sender *service.Sender, fmi *service.FmiCollector
 		layout.NewSpacer(),
 		lastSentLabel,
 		countdownLabel,
+		imageBtn,
 		payloadBtn,
 		sendBtn,
 	)

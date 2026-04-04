@@ -14,8 +14,9 @@ import (
 )
 
 type config struct {
-	WebhookURL   string `json:"webhook_url"`
-	SendInterval string `json:"send_interval"`
+	WebhookURL      string `json:"webhook_url"`
+	WeatherImageURL string `json:"weather_image_url"` // optional; enables PNG image sends
+	SendInterval    string `json:"send_interval"`
 	// tags_file intentionally removed — always stored in Application Support
 }
 
@@ -48,6 +49,35 @@ func bundleResourcesDir() string {
 		}
 	}
 	return "."
+}
+
+// bundleParentDir returns the directory containing the .app bundle when
+// running inside one (i.e. the project/install directory), or "." otherwise.
+// Useful for finding resource files that haven't been copied into the bundle.
+func bundleParentDir() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return "."
+	}
+	dir := filepath.Dir(exe)
+	if strings.HasSuffix(dir, "/Contents/MacOS") {
+		// exe is at <project>/Foo.app/Contents/MacOS/binary
+		// bundle parent is three levels up
+		return filepath.Dir(filepath.Dir(filepath.Dir(dir)))
+	}
+	return "."
+}
+
+// findFile returns the first path in dirs where filename exists, or a join of
+// the last dir and filename as a best-effort fallback.
+func findFile(filename string, dirs ...string) string {
+	for _, dir := range dirs {
+		p := filepath.Join(dir, filename)
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return filepath.Join(dirs[len(dirs)-1], filename)
 }
 
 func loadConfig(path string) (config, error) {
@@ -96,7 +126,16 @@ func main() {
 
 	fmi := service.NewFmiCollector("Helsinki")
 	webhook := service.NewWebhookService(cfg.WebhookURL, fmi)
-	sender := service.NewSender(webhook, store, interval)
+
+	templatePath := findFile("weather.png", bundleResourcesDir(), bundleParentDir(), ".")
+	imageSvc := service.NewWeatherImageService(cfg.WeatherImageURL, templatePath)
+	if cfg.WeatherImageURL != "" {
+		log.Printf("Weather image service enabled: url configured, template=%s", templatePath)
+	} else {
+		log.Printf("Weather image service: preview-only (no weather_image_url), template=%s", templatePath)
+	}
+
+	sender := service.NewSender(webhook, imageSvc, store, interval)
 	sender.Start()
 
 	// Fetch FMI forecast immediately so weather data is ready before the first send.
