@@ -58,7 +58,7 @@ so lg: sizes are kept compact to fit the ~240px available height.
       {% assign feelsLikeRounded = weather_current.feelsLike | round: 0 %}{% assign tempRounded = weather_current.temperature | round: 0 %}{% if feelsLikeRounded != tempRounded %}<div class="layout layout--col text--center gap--none"><span class="label label--xxsmall sm:label--xsmall">feels</span><span class="value value--xsmall sm:value--small value--tnums">{{ feelsLikeRounded }}°</span></div>{% endif %}
     </div>
     <!-- Hourly forecast -->
-    <div class="layout layout--row gap--small layout--stretch-x layout--top">
+    <div class="layout layout--row gap--small layout--stretch-x" style="align-items: flex-start;">
       {% for hour in weather_forecast %}
       {% assign hourIcon = "wi-cloudy" %}
       {% if hour.symbolText == "Clear" %}{% assign hourIcon = "wi-day-sunny" %}
