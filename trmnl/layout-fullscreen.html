@@ -71,9 +71,7 @@ Optimised for full-screen (800×480px).
       <span class="label label--xsmall">{{ hour.time }}</span>
       <span class="value value--medium value--tnums">{{ hour.temperature | round: 0 }}°</span>
       <img class="image image--contain" src="https://trmnl.com/images/plugins/weather/{{ forecastIcon }}.svg" style="width:36px;height:36px;">
-      {% if hour.precipitation > 0 %}
-      <span class="label label--xxsmall value--tnums">{{ hour.precipitation }}mm</span>
-      {% endif %}
+      <span class="label label--xxsmall value--tnums">{% if hour.precipitation > 0 %}{{ hour.precipitation }}mm{% endif %}</span>
     </div>
     {% endfor %}
   </div>
