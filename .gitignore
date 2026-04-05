@@ -5,3 +5,4 @@ ruuvi-listener
 .claude/worktrees/
 *.app/
 .buildnum
+FyneApp.toml
