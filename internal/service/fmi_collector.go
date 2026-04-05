@@ -186,7 +186,7 @@ func (f *FmiCollector) fetch() (*WeatherData, error) {
 	reqURL := fmt.Sprintf(
 		"%s?service=WFS&version=2.0.0&request=getFeature"+
 			"&storedquery_id=fmi::forecast::harmonie::surface::point::simple"+
-			"&place=%s&parameters=Temperature,WeatherSymbol3,Precipitation1h"+
+			"&place=%s&parameters=Temperature,WeatherSymbol3,Precipitation1h,WindSpeedMS"+
 			"&timestep=60&starttime=%s&endtime=%s",
 		fmiBaseURL,
 		url.QueryEscape(f.place),
@@ -290,7 +290,7 @@ func parseBsWfsElements(data []byte) ([]rawWfsElement, error) {
 
 type hourParams struct {
 	temperature   float64
-	feelsLike     float64
+	windSpeed     float64 // m/s
 	weatherSymbol float64
 	precipitation float64
 }
@@ -316,6 +316,8 @@ func (f *FmiCollector) buildWeatherData(elements []rawWfsElement) (*WeatherData,
 			p.weatherSymbol = val
 		case "Precipitation1h":
 			p.precipitation = val
+		case "WindSpeedMS":
+			p.windSpeed = val
 		}
 	}
 
@@ -347,10 +349,16 @@ func (f *FmiCollector) buildWeatherData(elements []rawWfsElement) (*WeatherData,
 			icon = "cloudy-gusts"
 		}
 		prec := math.Round(p.precipitation*10) / 10
+		feelsLike := p.temperature
+		if p.temperature <= 10 && p.windSpeed > 1.33 {
+			v := p.windSpeed * 3.6 // m/s → km/h
+			wc := 13.12 + 0.6215*p.temperature - 11.37*math.Pow(v, 0.16) + 0.3965*p.temperature*math.Pow(v, 0.16)
+			feelsLike = math.Round(wc*10) / 10
+		}
 		return ForecastHour{
 			Time:          local.Format("15:04"),
 			Temperature:   p.temperature,
-			FeelsLike:     p.temperature, // HIRLAM doesn't provide FeelsLike
+			FeelsLike:     feelsLike,
 			SymbolText:    text,
 			SymbolIcon:    icon,
 			Precipitation: prec,
