@@ -57,7 +57,7 @@ Optimised for full-screen (800×480px).
   </div>
 
   <!-- Hourly forecast -->
-  <div class="layout layout--row gap--medium layout--stretch-x">
+  <div class="layout layout--row gap--medium layout--stretch-x layout--top">
     {% for hour in weather_forecast %}
     {% assign hourIcon = "wi-cloudy" %}
     {% if hour.symbolText == "Clear" %}{% assign hourIcon = "wi-day-sunny" %}
