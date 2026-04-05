@@ -23,5 +23,8 @@ else
     echo "  Warning: config.json not found in current directory, skipping."
 fi
 
+echo "Signing app (ad-hoc)..."
+codesign --force --deep --sign - "$APP"
+
 echo "Done. Launch with: open \"$APP\""
 echo "Note: tag names are stored in ~/Library/Application Support/RuuviListener/tags.json"

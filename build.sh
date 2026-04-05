@@ -10,8 +10,4 @@ echo "Building Ruuvi Listener (build $BUILD)…"
 # Increment the local build counter.
 echo $((BUILD + 1)) > "$BUILDNUM_FILE"
 
-# fyne may write Build back into FyneApp.toml — reset it so the file
-# stays clean and never causes merge conflicts.
-git checkout -- FyneApp.toml
-
 echo "Done. Next build will be $((BUILD + 1))."
